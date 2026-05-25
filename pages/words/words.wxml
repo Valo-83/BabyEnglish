@@ -1,0 +1,25 @@
+<!--pages/words/words.wxml-->
+<view class="container">
+  <view class="header">
+    <text class="title">单词列表</text>
+  </view>
+
+  <view class="word-list">
+    <view class="word-item" 
+          wx:for="{{words}}" 
+          wx:key="index"
+          bindtap="playWord"
+          data-index="{{index}}">
+      <view class="word-emoji">
+        <text>{{item.emoji}}</text>
+      </view>
+      <view class="word-info">
+        <text class="word-english">{{item.english}}</text>
+        <text class="word-chinese">{{item.chinese}}</text>
+      </view>
+      <view class="word-sound">
+        <text class="sound-icon">🔊</text>
+      </view>
+    </view>
+  </view>
+</view>

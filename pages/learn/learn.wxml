@@ -1,0 +1,48 @@
+<!--pages/learn/learn.wxml-->
+<view class="container">
+  <view class="nav-bar">
+    <view class="back-btn" bindtap="goBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="page-title">{{title}}</text>
+  </view>
+
+  <swiper class="card-swiper" 
+          current="{{currentIndex}}" 
+          bindchange="onSwiperChange"
+          circular="{{true}}">
+    <swiper-item wx:for="{{words}}" wx:key="index">
+      <view class="word-card" style="background-color: {{item.bgColor}};">
+        <view class="image-wrapper" bindtap="playSound" data-index="{{index}}">
+          <text class="emoji">{{item.emoji}}</text>
+        </view>
+        
+        <view class="word-wrapper" bindtap="playSound" data-index="{{index}}">
+          <text class="english-word">{{item.english}}</text>
+        </view>
+        
+        <view class="meaning-wrapper">
+          <text class="chinese-meaning">{{item.chinese}}</text>
+        </view>
+
+        <view class="sound-btn" bindtap="playSound" data-index="{{index}}">
+          <text class="sound-icon">🔊</text>
+          <text class="sound-text">点击发音</text>
+        </view>
+      </view>
+    </swiper-item>
+  </swiper>
+
+  <view class="progress-bar">
+    <text class="progress-text">{{currentIndex + 1}} / {{words.length}}</text>
+  </view>
+
+  <view class="nav-buttons">
+    <view class="nav-btn prev-btn" bindtap="prevWord" wx:if="{{currentIndex > 0}}">
+      <text>上一个</text>
+    </view>
+    <view class="nav-btn next-btn" bindtap="nextWord" wx:if="{{currentIndex < words.length - 1}}">
+      <text>下一个</text>
+    </view>
+  </view>
+</view>

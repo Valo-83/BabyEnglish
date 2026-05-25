@@ -1,0 +1,41 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <view class="header">
+    <text class="title">英语点读</text>
+    <text class="subtitle">快乐学英语</text>
+  </view>
+
+  <view class="category-list">
+    <view class="category-item" bindtap="goToLearn" data-type="animals">
+      <view class="icon-wrapper" style="background-color: #bc8011;">
+        <text class="icon">🐶</text>
+      </view>
+      <text class="category-name">动物</text>
+    </view>
+
+    <view class="category-item" bindtap="goToLearn" data-type="fruits">
+      <view class="icon-wrapper" style="background-color: #E8F5E9;">
+        <text class="icon">🍎</text>
+      </view>
+      <text class="category-name">水果</text>
+    </view>
+
+    <view class="category-item" bindtap="goToLearn" data-type="colors">
+      <view class="icon-wrapper" style="background-color: #E3F2FD;">
+        <text class="icon">🎨</text>
+      </view>
+      <text class="category-name">颜色</text>
+    </view>
+
+    <view class="category-item" bindtap="goToLearn" data-type="numbers">
+      <view class="icon-wrapper" style="background-color: #F3E5F5;">
+        <text class="icon">🔢</text>
+      </view>
+      <text class="category-name">数字</text>
+    </view>
+  </view>
+
+  <view class="footer">
+    <text class="tip">点击卡片开始学习吧！</text>
+  </view>
+</view>

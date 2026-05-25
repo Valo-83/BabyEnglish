@@ -1,0 +1,85 @@
+/* pages/words/words.wxss */
+.container {
+  padding: 40rpx;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #FFF9C4 0%, #E1F5FE 100%);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 60rpx;
+}
+
+.title {
+  font-size: 64rpx;
+  font-weight: bold;
+  color: #FF6B6B;
+}
+
+.word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 30rpx;
+}
+
+.word-item {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 40rpx;
+  border-radius: 40rpx;
+  box-shadow: 0 8rpx 20rpx rgba(0,0,0,0.1);
+  transition: all 0.3s;
+}
+
+.word-item:active {
+  transform: scale(0.98);
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
+}
+
+.word-emoji {
+  width: 120rpx;
+  height: 120rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F5F5F5;
+  border-radius: 30rpx;
+  margin-right: 40rpx;
+}
+
+.word-emoji text {
+  font-size: 64rpx;
+}
+
+.word-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.word-english {
+  font-size: 48rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+
+.word-chinese {
+  font-size: 32rpx;
+  color: #666;
+}
+
+.word-sound {
+  width: 100rpx;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FF6B6B;
+  border-radius: 50%;
+}
+
+.sound-icon {
+  font-size: 48rpx;
+}

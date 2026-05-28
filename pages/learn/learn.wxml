@@ -7,31 +7,67 @@
     <text class="page-title">{{title}}</text>
   </view>
 
-  <swiper class="card-swiper" 
-          current="{{currentIndex}}" 
-          bindchange="onSwiperChange"
-          circular="{{true}}">
-    <swiper-item wx:for="{{words}}" wx:key="index">
-      <view class="word-card" style="background-color: {{item.bgColor}};">
-        <view class="image-wrapper" bindtap="playSound" data-index="{{index}}">
-          <text class="emoji">{{item.emoji}}</text>
-        </view>
-        
-        <view class="word-wrapper" bindtap="playSound" data-index="{{index}}">
-          <text class="english-word">{{item.english}}</text>
-        </view>
-        
-        <view class="meaning-wrapper">
-          <text class="chinese-meaning">{{item.chinese}}</text>
-        </view>
+  <view class="card-area">
+    <swiper class="card-swiper"
+            current="{{currentIndex}}"
+            bindchange="onSwiperChange"
+            circular="{{true}}">
+      <swiper-item wx:for="{{words}}" wx:key="index">
+        <view class="word-card" style="background-color: {{item.bgColor}};">
+          <view class="image-wrapper" bindtap="playSound" data-index="{{index}}">
+            <text class="emoji">{{item.emoji}}</text>
+          </view>
 
-        <view class="sound-btn" bindtap="playSound" data-index="{{index}}">
-          <text class="sound-icon">🔊</text>
-          <text class="sound-text">点击发音</text>
+          <view class="word-wrapper" bindtap="playSound" data-index="{{index}}">
+            <text class="english-word">{{item.english}}</text>
+          </view>
+
+          <view class="meaning-wrapper">
+            <text class="chinese-meaning">{{item.chinese}}</text>
+          </view>
+
+          <view class="sound-btn" bindtap="playSound" data-index="{{index}}">
+            <text class="sound-icon">🔊</text>
+            <text class="sound-text">点击发音</text>
+          </view>
+        </view>
+      </swiper-item>
+    </swiper>
+
+    <!-- AI 故事浮层 - 不占用流式布局空间 -->
+    <view class="story-panel" wx:if="{{selectedWord || storyLoading || aiStory || storyError}}">
+      <view class="story-header" bindtap="toggleStory">
+        <text class="story-title" wx:if="{{selectedWord}}">{{selectedWord}} 的 AI 故事</text>
+        <text class="story-title" wx:else>AI 故事</text>
+        <view class="story-toggle">
+          <text wx:if="{{storyCollapsed}}">展开</text>
+          <text wx:else>收起</text>
         </view>
       </view>
-    </swiper-item>
-  </swiper>
+
+      <view class="story-loading" wx:if="{{storyLoading && !storyCollapsed}}">
+        <text>✏️ 故事生成中...</text>
+      </view>
+
+      <scroll-view class="story-scroll" scroll-y="{{true}}" wx:elif="{{aiStory && !storyCollapsed}}">
+        <text class="story-text">{{aiStory}}</text>
+      </scroll-view>
+
+      <view class="story-error" wx:elif="{{storyError && !storyCollapsed}}">
+        <text>{{storyError}}</text>
+        <view class="sound-btn" bindtap="generateStoryNow">
+          <text class="sound-text">重试生成</text>
+        </view>
+      </view>
+
+      <view class="story-loading" wx:elif="{{!storyCollapsed}}">
+        <text>停留一下会自动生成，也可以立即生成。</text>
+        <view class="sound-btn" bindtap="generateStoryNow">
+          <text class="sound-text">生成 AI 故事</text>
+        </view>
+      </view>
+    </view>
+  </view>
 
   <view class="progress-bar">
     <text class="progress-text">{{currentIndex + 1}} / {{words.length}}</text>

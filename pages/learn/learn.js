@@ -1,14 +1,21 @@
-// pages/learn/learn.js
+﻿// pages/learn/learn.js
 Page({
   data: {
     title: '',
     type: '',
     currentIndex: 0,
-    words: []
+    words: [],
+    selectedWord: '',
+    aiStory: '',
+    storyLoading: false,
+    storyError: '',
+    storyCollapsed: false
   },
 
   onLoad(options) {
     const type = options.type || 'animals'
+    const words = this.getWords(type)
+    this.storyRequestId = 0
     this.innerAudioContext = wx.createInnerAudioContext()
     this.innerAudioContext.onError((err) => {
       console.error('音频播放错误:', err)
@@ -16,7 +23,11 @@ Page({
     this.setData({
       type: type,
       title: this.getTitle(type),
-      words: this.getWords(type)
+      words: words
+    }, () => {
+      if (words.length > 0) {
+        this.fetchAIStory(words[0])
+      }
     })
   },
 
@@ -133,12 +144,92 @@ Page({
   playSound(e) {
     const index = e.currentTarget.dataset.index
     const word = this.data.words[index]
+    if (!word) {
+      return
+    }
+
     wx.showToast({
       title: word.english,
       icon: 'none',
       duration: 1000
     })
     this.playWithMultipleTTS(word.english)
+    this.fetchAIStory(word)
+  },
+
+  fetchAIStory(word) {
+    const requestId = (this.storyRequestId || 0) + 1
+    this.storyRequestId = requestId
+
+    this.setData({
+      selectedWord: word.english,
+      aiStory: '',
+      storyLoading: true,
+      storyError: '',
+      storyCollapsed: false
+    })
+
+    wx.request({
+      url: `http://127.0.0.1:8000/api/ai_story?word=${encodeURIComponent(word.english)}`,
+      method: 'POST',
+      header: {
+        'content-type': 'application/json'
+      },
+      success: (res) => {
+        if (requestId !== this.storyRequestId) {
+          return
+        }
+
+        const data = res.data || {}
+        const story =
+          data.story ||
+          data.ai_story ||
+          data.aiStory ||
+          data.content ||
+          data.text ||
+          (data.data && (data.data.story || data.data.ai_story || data.data.content || data.data.text)) ||
+          ''
+
+        if (story) {
+          this.setData({
+            aiStory: story,
+            storyLoading: false,
+            storyError: ''
+          })
+          return
+        }
+
+        this.setData({
+          aiStory: '',
+          storyLoading: false,
+          storyError: '没有收到 AI 故事内容'
+        })
+      },
+      fail: () => {
+        if (requestId !== this.storyRequestId) {
+          return
+        }
+
+        this.setData({
+          aiStory: '',
+          storyLoading: false,
+          storyError: 'AI 故事获取失败，请确认本地后端已启动'
+        })
+      }
+    })
+  },
+
+  loadStoryByIndex(index) {
+    const word = this.data.words[index]
+    if (word) {
+      this.fetchAIStory(word)
+    }
+  },
+
+  toggleStory() {
+    this.setData({
+      storyCollapsed: !this.data.storyCollapsed
+    })
   },
 
   playWithMultipleTTS(text) {
@@ -177,23 +268,36 @@ Page({
 
   prevWord() {
     if (this.data.currentIndex > 0) {
+      const nextIndex = this.data.currentIndex - 1
       this.setData({
-        currentIndex: this.data.currentIndex - 1
+        currentIndex: nextIndex
+      }, () => {
+        this.loadStoryByIndex(nextIndex)
       })
     }
   },
 
   nextWord() {
     if (this.data.currentIndex < this.data.words.length - 1) {
+      const nextIndex = this.data.currentIndex + 1
       this.setData({
-        currentIndex: this.data.currentIndex + 1
+        currentIndex: nextIndex
+      }, () => {
+        this.loadStoryByIndex(nextIndex)
       })
     }
   },
 
   onSwiperChange(e) {
+    const nextIndex = e.detail.current
+    if (nextIndex === this.data.currentIndex) {
+      return
+    }
+
     this.setData({
-      currentIndex: e.detail.current
+      currentIndex: nextIndex
+    }, () => {
+      this.loadStoryByIndex(nextIndex)
     })
   },
 

@@ -118,4 +118,4 @@ fetch(`https://your-tts-api.com/synthesize?text=${word.english}`)
 MIT License
 
 ## 作者
-网络工程专业大二学生项目
+Valo Zhu

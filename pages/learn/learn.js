@@ -1,4 +1,14 @@
 ﻿// pages/learn/learn.js
+const {
+  buildReadableStoryText,
+  findStoredRecord,
+  findStoredStory,
+  findWordIndex,
+  splitReadableTTSChunks
+} = require('./learnUtils')
+
+const STUDY_RECORD_STORAGE_KEY = 'LOCAL_STUDY_RECORDS'
+
 Page({
   data: {
     title: '',
@@ -6,6 +16,12 @@ Page({
     currentIndex: 0,
     words: [],
     selectedWord: '',
+    // 新字段（供未来 WXML 升级用）
+    currentStory: '',
+    englishStory: '',
+    chineseStory: '',
+    isLoading: false,
+    // 旧字段（兼容现有 WXML）
     aiStory: '',
     storyLoading: false,
     storyError: '',
@@ -15,23 +31,24 @@ Page({
   onLoad(options) {
     const type = options.type || 'animals'
     const words = this.getWords(type)
+    const initialIndex = findWordIndex(words, options.word)
     this.storyRequestId = 0
-    this.innerAudioContext = wx.createInnerAudioContext()
-    this.innerAudioContext.onError((err) => {
-      console.error('音频播放错误:', err)
-    })
+    this.innerAudioContext = null
     this.setData({
       type: type,
       title: this.getTitle(type),
-      words: words
+      words: words,
+      currentIndex: initialIndex
     }, () => {
       if (words.length > 0) {
-        this.fetchAIStory(words[0])
+        this.loadAIStory(words[initialIndex])
       }
     })
   },
 
   onUnload() {
+    this._stopStoryTyping()
+    this.ttsPlaybackId = (this.ttsPlaybackId || 0) + 1
     if (this.innerAudioContext) {
       this.innerAudioContext.destroy()
     }
@@ -50,92 +67,92 @@ Page({
   getWords(type) {
     const wordData = {
       'animals': [
-        { english: 'Dog', chinese: '狗', emoji: '🐶', bgColor: '#FFE5B4' },
-        { english: 'Cat', chinese: '猫', emoji: '🐱', bgColor: '#E8EAF6' },
-        { english: 'Rabbit', chinese: '兔子', emoji: '🐰', bgColor: '#FCE4EC' },
-        { english: 'Bird', chinese: '鸟', emoji: '🐦', bgColor: '#E1F5FE' },
-        { english: 'Fish', chinese: '鱼', emoji: '🐟', bgColor: '#E0F2F1' },
-        { english: 'Elephant', chinese: '大象', emoji: '🐘', bgColor: '#F5F5F5' },
-        { english: 'Monkey', chinese: '猴子', emoji: '🐵', bgColor: '#FFF8E1' },
-        { english: 'Bear', chinese: '熊', emoji: '🐻', bgColor: '#EFEBE9' },
-        { english: 'Panda', chinese: '熊猫', emoji: '🐼', bgColor: '#FAFAFA' },
-        { english: 'Lion', chinese: '狮子', emoji: '🦁', bgColor: '#FFF3E0' },
-        { english: 'Tiger', chinese: '老虎', emoji: '🐯', bgColor: '#FFECB3' },
-        { english: 'Horse', chinese: '马', emoji: '🐴', bgColor: '#FFEBEE' },
-        { english: 'Pig', chinese: '猪', emoji: '🐷', bgColor: '#FCE4EC' },
-        { english: 'Cow', chinese: '牛', emoji: '🐮', bgColor: '#EFEBE9' },
-        { english: 'Sheep', chinese: '羊', emoji: '🐑', bgColor: '#FAFAFA' },
-        { english: 'Duck', chinese: '鸭子', emoji: '🦆', bgColor: '#FFF9C4' },
-        { english: 'Chicken', chinese: '鸡', emoji: '🐔', bgColor: '#FFF8E1' },
-        { english: 'Frog', chinese: '青蛙', emoji: '🐸', bgColor: '#E8F5E9' },
-        { english: 'Snake', chinese: '蛇', emoji: '🐍', bgColor: '#E0F2F1' },
-        { english: 'Butterfly', chinese: '蝴蝶', emoji: '🦋', bgColor: '#F3E5F5' }
+        { english: 'dog', chinese: '狗', emoji: '🐶', bgColor: '#FFE5B4' },
+        { english: 'cat', chinese: '猫', emoji: '🐱', bgColor: '#E8EAF6' },
+        { english: 'rabbit', chinese: '兔子', emoji: '🐰', bgColor: '#FCE4EC' },
+        { english: 'bird', chinese: '鸟', emoji: '🐦', bgColor: '#E1F5FE' },
+        { english: 'fish', chinese: '鱼', emoji: '🐟', bgColor: '#E0F2F1' },
+        { english: 'elephant', chinese: '大象', emoji: '🐘', bgColor: '#F5F5F5' },
+        { english: 'monkey', chinese: '猴子', emoji: '🐵', bgColor: '#FFF8E1' },
+        { english: 'bear', chinese: '熊', emoji: '🐻', bgColor: '#EFEBE9' },
+        { english: 'panda', chinese: '熊猫', emoji: '🐼', bgColor: '#FAFAFA' },
+        { english: 'lion', chinese: '狮子', emoji: '🦁', bgColor: '#FFF3E0' },
+        { english: 'tiger', chinese: '老虎', emoji: '🐯', bgColor: '#FFECB3' },
+        { english: 'horse', chinese: '马', emoji: '🐴', bgColor: '#FFEBEE' },
+        { english: 'pig', chinese: '猪', emoji: '🐷', bgColor: '#FCE4EC' },
+        { english: 'cow', chinese: '牛', emoji: '🐮', bgColor: '#EFEBE9' },
+        { english: 'sheep', chinese: '羊', emoji: '🐑', bgColor: '#FAFAFA' },
+        { english: 'duck', chinese: '鸭子', emoji: '🦆', bgColor: '#FFF9C4' },
+        { english: 'chicken', chinese: '鸡', emoji: '🐔', bgColor: '#FFF8E1' },
+        { english: 'frog', chinese: '青蛙', emoji: '🐸', bgColor: '#E8F5E9' },
+        { english: 'snake', chinese: '蛇', emoji: '🐍', bgColor: '#E0F2F1' },
+        { english: 'butterfly', chinese: '蝴蝶', emoji: '🦋', bgColor: '#F3E5F5' }
       ],
       'fruits': [
-        { english: 'Apple', chinese: '苹果', emoji: '🍎', bgColor: '#FFE5E5' },
-        { english: 'Banana', chinese: '香蕉', emoji: '🍌', bgColor: '#FFF9C4' },
-        { english: 'Orange', chinese: '橙子', emoji: '🍊', bgColor: '#FFF3E0' },
-        { english: 'Grape', chinese: '葡萄', emoji: '🍇', bgColor: '#F3E5F5' },
-        { english: 'Strawberry', chinese: '草莓', emoji: '🍓', bgColor: '#FFEBEE' },
-        { english: 'Watermelon', chinese: '西瓜', emoji: '🍉', bgColor: '#E8F5E9' },
-        { english: 'Pineapple', chinese: '菠萝', emoji: '🍍', bgColor: '#FFFDE7' },
-        { english: 'Peach', chinese: '桃子', emoji: '🍑', bgColor: '#FCE4EC' },
-        { english: 'Mango', chinese: '芒果', emoji: '🥭', bgColor: '#FFF9C4' },
-        { english: 'Cherry', chinese: '樱桃', emoji: '🍒', bgColor: '#FFCDD2' },
-        { english: 'Lemon', chinese: '柠檬', emoji: '🍋', bgColor: '#FFF9C4' },
-        { english: 'Pear', chinese: '梨', emoji: '🍐', bgColor: '#F1F8E9' },
-        { english: 'Plum', chinese: '李子', emoji: '🫐', bgColor: '#E1BEE7' },
-        { english: 'Blueberry', chinese: '蓝莓', emoji: '🫐', bgColor: '#E3F2FD' },
-        { english: 'Kiwi', chinese: '猕猴桃', emoji: '🥝', bgColor: '#E8F5E9' },
-        { english: 'Coconut', chinese: '椰子', emoji: '🥥', bgColor: '#EFEBE9' },
-        { english: 'Peanut', chinese: '花生', emoji: '🥜', bgColor: '#FFF8E1' },
-        { english: 'Melon', chinese: '哈密瓜', emoji: '🍈', bgColor: '#F1F8E9' },
-        { english: 'Avocado', chinese: '牛油果', emoji: '🥑', bgColor: '#E8F5E9' },
-        { english: 'Tomato', chinese: '番茄', emoji: '🍅', bgColor: '#FFCDD2' }
+        { english: 'apple', chinese: '苹果', emoji: '🍎', bgColor: '#FFE5E5' },
+        { english: 'banana', chinese: '香蕉', emoji: '🍌', bgColor: '#FFF9C4' },
+        { english: 'orange', chinese: '橙子', emoji: '🍊', bgColor: '#FFF3E0' },
+        { english: 'grape', chinese: '葡萄', emoji: '🍇', bgColor: '#F3E5F5' },
+        { english: 'strawberry', chinese: '草莓', emoji: '🍓', bgColor: '#FFEBEE' },
+        { english: 'watermelon', chinese: '西瓜', emoji: '🍉', bgColor: '#E8F5E9' },
+        { english: 'pineapple', chinese: '菠萝', emoji: '🍍', bgColor: '#FFFDE7' },
+        { english: 'peach', chinese: '桃子', emoji: '🍑', bgColor: '#FCE4EC' },
+        { english: 'mango', chinese: '芒果', emoji: '🥭', bgColor: '#FFF9C4' },
+        { english: 'cherry', chinese: '樱桃', emoji: '🍒', bgColor: '#FFCDD2' },
+        { english: 'lemon', chinese: '柠檬', emoji: '🍋', bgColor: '#FFF9C4' },
+        { english: 'pear', chinese: '梨', emoji: '🍐', bgColor: '#F1F8E9' },
+        { english: 'plum', chinese: '李子', emoji: '🫐', bgColor: '#E1BEE7' },
+        { english: 'blueberry', chinese: '蓝莓', emoji: '🫐', bgColor: '#E3F2FD' },
+        { english: 'kiwi', chinese: '猕猴桃', emoji: '🥝', bgColor: '#E8F5E9' },
+        { english: 'coconut', chinese: '椰子', emoji: '🥥', bgColor: '#EFEBE9' },
+        { english: 'peanut', chinese: '花生', emoji: '🥜', bgColor: '#FFF8E1' },
+        { english: 'melon', chinese: '哈密瓜', emoji: '🍈', bgColor: '#F1F8E9' },
+        { english: 'avocado', chinese: '牛油果', emoji: '🥑', bgColor: '#E8F5E9' },
+        { english: 'tomato', chinese: '番茄', emoji: '🍅', bgColor: '#FFCDD2' }
       ],
       'colors': [
-        { english: 'Red', chinese: '红色', emoji: '🔴', bgColor: '#FFEBEE' },
-        { english: 'Blue', chinese: '蓝色', emoji: '🔵', bgColor: '#E3F2FD' },
-        { english: 'Green', chinese: '绿色', emoji: '🟢', bgColor: '#E8F5E9' },
-        { english: 'Yellow', chinese: '黄色', emoji: '🟡', bgColor: '#FFF9C4' },
-        { english: 'Purple', chinese: '紫色', emoji: '🟣', bgColor: '#F3E5F5' },
-        { english: 'Orange', chinese: '橙色', emoji: '🟠', bgColor: '#FFF3E0' },
-        { english: 'Pink', chinese: '粉色', emoji: '💗', bgColor: '#FCE4EC' },
-        { english: 'Brown', chinese: '棕色', emoji: '🟤', bgColor: '#EFEBE9' },
-        { english: 'Black', chinese: '黑色', emoji: '⚫', bgColor: '#424242' },
-        { english: 'White', chinese: '白色', emoji: '⚪', bgColor: '#FFFFFF' },
-        { english: 'Gray', chinese: '灰色', emoji: '🩶', bgColor: '#9E9E9E' },
-        { english: 'Gold', chinese: '金色', emoji: '🪙', bgColor: '#FFD700' },
-        { english: 'Silver', chinese: '银色', emoji: '🥈', bgColor: '#C0C0C0' },
-        { english: 'Cyan', chinese: '青色', emoji: '🔵', bgColor: '#E0F7FA' },
-        { english: 'Navy', chinese: '深蓝', emoji: '🔵', bgColor: '#1A237E' },
-        { english: 'Coral', chinese: '珊瑚色', emoji: '🩷', bgColor: '#FF7F50' },
-        { english: 'Lavender', chinese: '薰衣草色', emoji: '💜', bgColor: '#E6E6FA' },
-        { english: 'Mint', chinese: '薄荷绿', emoji: '🌿', bgColor: '#98FB98' },
-        { english: 'Peach', chinese: '桃色', emoji: '🍑', bgColor: '#FFDAB9' },
-        { english: 'Sky Blue', chinese: '天蓝色', emoji: '☁️', bgColor: '#87CEEB' }
+        { english: 'red', chinese: '红色', emoji: '🔴', bgColor: '#FFEBEE' },
+        { english: 'blue', chinese: '蓝色', emoji: '🔵', bgColor: '#E3F2FD' },
+        { english: 'green', chinese: '绿色', emoji: '🟢', bgColor: '#E8F5E9' },
+        { english: 'yellow', chinese: '黄色', emoji: '🟡', bgColor: '#FFF9C4' },
+        { english: 'purple', chinese: '紫色', emoji: '🟣', bgColor: '#F3E5F5' },
+        { english: 'orange', chinese: '橙色', emoji: '🟠', bgColor: '#FFF3E0' },
+        { english: 'pink', chinese: '粉色', emoji: '💗', bgColor: '#FCE4EC' },
+        { english: 'brown', chinese: '棕色', emoji: '🟤', bgColor: '#EFEBE9' },
+        { english: 'black', chinese: '黑色', emoji: '⚫', bgColor: '#424242' },
+        { english: 'white', chinese: '白色', emoji: '⚪', bgColor: '#FFFFFF' },
+        { english: 'gray', chinese: '灰色', emoji: '🩶', bgColor: '#9E9E9E' },
+        { english: 'gold', chinese: '金色', emoji: '🪙', bgColor: '#FFD700' },
+        { english: 'silver', chinese: '银色', emoji: '🥈', bgColor: '#C0C0C0' },
+        { english: 'cyan', chinese: '青色', emoji: '🔵', bgColor: '#E0F7FA' },
+        { english: 'navy', chinese: '深蓝', emoji: '🔵', bgColor: '#1A237E' },
+        { english: 'coral', chinese: '珊瑚色', emoji: '🩷', bgColor: '#FF7F50' },
+        { english: 'lavender', chinese: '薰衣草色', emoji: '💜', bgColor: '#E6E6FA' },
+        { english: 'mint', chinese: '薄荷绿', emoji: '🌿', bgColor: '#98FB98' },
+        { english: 'peach', chinese: '桃色', emoji: '🍑', bgColor: '#FFDAB9' },
+        { english: 'sky blue', chinese: '天蓝色', emoji: '☁️', bgColor: '#87CEEB' }
       ],
       'numbers': [
-        { english: 'One', chinese: '一', emoji: '1️⃣', bgColor: '#FFF9C4' },
-        { english: 'Two', chinese: '二', emoji: '2️⃣', bgColor: '#E1F5FE' },
-        { english: 'Three', chinese: '三', emoji: '3️⃣', bgColor: '#F3E5F5' },
-        { english: 'Four', chinese: '四', emoji: '4️⃣', bgColor: '#E8F5E9' },
-        { english: 'Five', chinese: '五', emoji: '5️⃣', bgColor: '#FFE5B4' },
-        { english: 'Six', chinese: '六', emoji: '6️⃣', bgColor: '#FCE4EC' },
-        { english: 'Seven', chinese: '七', emoji: '7️⃣', bgColor: '#E3F2FD' },
-        { english: 'Eight', chinese: '八', emoji: '8️⃣', bgColor: '#FFF3E0' },
-        { english: 'Nine', chinese: '九', emoji: '9️⃣', bgColor: '#E1F5FE' },
-        { english: 'Ten', chinese: '十', emoji: '🔟', bgColor: '#F3E5F5' },
-        { english: 'Eleven', chinese: '十一', emoji: '1️⃣1️⃣', bgColor: '#FFE5B4' },
-        { english: 'Twelve', chinese: '十二', emoji: '1️⃣2️⃣', bgColor: '#E8F5E9' },
-        { english: 'Thirteen', chinese: '十三', emoji: '1️⃣3️⃣', bgColor: '#FCE4EC' },
-        { english: 'Fourteen', chinese: '十四', emoji: '1️⃣4️⃣', bgColor: '#E3F2FD' },
-        { english: 'Fifteen', chinese: '十五', emoji: '1️⃣5️⃣', bgColor: '#FFF9C4' },
-        { english: 'Sixteen', chinese: '十六', emoji: '1️⃣6️⃣', bgColor: '#F3E5F5' },
-        { english: 'Seventeen', chinese: '十七', emoji: '1️⃣7️⃣', bgColor: '#E8F5E9' },
-        { english: 'Eighteen', chinese: '十八', emoji: '1️⃣8️⃣', bgColor: '#FFE5B4' },
-        { english: 'Nineteen', chinese: '十九', emoji: '1️⃣9️⃣', bgColor: '#FCE4EC' },
-        { english: 'Twenty', chinese: '二十', emoji: '2️⃣0️⃣', bgColor: '#E1F5FE' }
+        { english: 'one', chinese: '一', emoji: '1️⃣', bgColor: '#FFF9C4' },
+        { english: 'two', chinese: '二', emoji: '2️⃣', bgColor: '#E1F5FE' },
+        { english: 'three', chinese: '三', emoji: '3️⃣', bgColor: '#F3E5F5' },
+        { english: 'four', chinese: '四', emoji: '4️⃣', bgColor: '#E8F5E9' },
+        { english: 'five', chinese: '五', emoji: '5️⃣', bgColor: '#FFE5B4' },
+        { english: 'six', chinese: '六', emoji: '6️⃣', bgColor: '#FCE4EC' },
+        { english: 'seven', chinese: '七', emoji: '7️⃣', bgColor: '#E3F2FD' },
+        { english: 'eight', chinese: '八', emoji: '8️⃣', bgColor: '#FFF3E0' },
+        { english: 'nine', chinese: '九', emoji: '9️⃣', bgColor: '#E1F5FE' },
+        { english: 'ten', chinese: '十', emoji: '🔟', bgColor: '#F3E5F5' },
+        { english: 'eleven', chinese: '十一', emoji: '1️⃣1️⃣', bgColor: '#FFE5B4' },
+        { english: 'twelve', chinese: '十二', emoji: '1️⃣2️⃣', bgColor: '#E8F5E9' },
+        { english: 'thirteen', chinese: '十三', emoji: '1️⃣3️⃣', bgColor: '#FCE4EC' },
+        { english: 'fourteen', chinese: '十四', emoji: '1️⃣4️⃣', bgColor: '#E3F2FD' },
+        { english: 'fifteen', chinese: '十五', emoji: '1️⃣5️⃣', bgColor: '#FFF9C4' },
+        { english: 'sixteen', chinese: '十六', emoji: '1️⃣6️⃣', bgColor: '#F3E5F5' },
+        { english: 'seventeen', chinese: '十七', emoji: '1️⃣7️⃣', bgColor: '#E8F5E9' },
+        { english: 'eighteen', chinese: '十八', emoji: '1️⃣8️⃣', bgColor: '#FFE5B4' },
+        { english: 'nineteen', chinese: '十九', emoji: '1️⃣9️⃣', bgColor: '#FCE4EC' },
+        { english: 'twenty', chinese: '二十', emoji: '2️⃣0️⃣', bgColor: '#E1F5FE' }
       ]
     }
     return wordData[type]??[]
@@ -153,76 +170,196 @@ Page({
       icon: 'none',
       duration: 1000
     })
+    this._trackStudyAction(word.english, { listen: 1 })
     this.playWithMultipleTTS(word.english)
-    this.fetchAIStory(word)
+    this.loadAIStory(word)
   },
 
-  fetchAIStory(word) {
+  async loadAIStory(word) {
     const requestId = (this.storyRequestId || 0) + 1
     this.storyRequestId = requestId
+    this._stopStoryTyping()
 
     this.setData({
       selectedWord: word.english,
+      // 新字段
+      currentStory: '',
+      englishStory: '',
+      chineseStory: '',
+      isLoading: true,
+      // 旧字段（兼容现有 WXML）
       aiStory: '',
       storyLoading: true,
       storyError: '',
       storyCollapsed: false
     })
+    this._trackStudyAction(word.english, { review: 1 })
 
-    wx.request({
-      url: `http://127.0.0.1:8000/api/ai_story?word=${encodeURIComponent(word.english)}`,
-      method: 'POST',
-      header: {
-        'content-type': 'application/json'
-      },
-      success: (res) => {
-        if (requestId !== this.storyRequestId) {
-          return
-        }
+    // 1. 尝试从本地缓存读取
+    try {
+      const cachedData = await new Promise((resolve, reject) => {
+        wx.getStorage({
+          key: 'LOCAL_STORED_AI_STORIES',
+          success: (res) => resolve(res.data || {}),
+          fail: reject
+        })
+      })
 
-        const data = res.data || {}
-        const story =
-          data.story ||
-          data.ai_story ||
-          data.aiStory ||
-          data.content ||
-          data.text ||
-          (data.data && (data.data.story || data.data.ai_story || data.data.content || data.data.text)) ||
-          ''
-
-        if (story) {
-          this.setData({
-            aiStory: story,
-            storyLoading: false,
-            storyError: ''
-          })
-          return
-        }
-
+      const cachedStory = findStoredStory(cachedData, word.english)
+      if (cachedStory) {
+        console.log(`=== 💾 命中缓存: ${word.english} ===`)
+        this._trackStudyAction(word.english, { cacheHit: 1 })
         this.setData({
+          // 新字段
+          currentStory: cachedStory.full || '',
+          englishStory: cachedStory.en || '',
+          chineseStory: cachedStory.cn || '',
+          isLoading: false,
+          // 旧字段（兼容现有 WXML）
+          aiStory: cachedStory.full || cachedStory.en || '',
+          storyLoading: false,
+          storyError: ''
+        })
+        return
+      }
+    } catch (e) {
+      console.log('=== 💾 无缓存或读取失败，将从网络获取 ===', e)
+    }
+
+    // 2. 从网络获取
+    try {
+      const res = await new Promise((resolve, reject) => {
+        wx.request({
+          url: `http://127.0.0.1:8000/api/ai_story?word=${encodeURIComponent(word.english)}`,
+          method: 'POST',
+          header: {
+            'content-type': 'application/json'
+          },
+          success: (res) => {
+            if (requestId !== this.storyRequestId) {
+              return reject(new Error('STALE'))
+            }
+            resolve(res)
+          },
+          fail: reject
+        })
+      })
+
+      const data = res.data || {}
+      const fullStory =
+        data.story ||
+        data.ai_story ||
+        data.aiStory ||
+        data.content ||
+        data.text ||
+        (data.data && (data.data.story || data.data.ai_story || data.data.content || data.data.text)) ||
+        ''
+      const englishStory = data.en || data.english || data.english_story || ''
+      const chineseStory = data.cn || data.chinese || data.chinese_story || ''
+
+      if (fullStory || englishStory || chineseStory) {
+        const storyText = fullStory || englishStory || ''
+        this.setData({
+          // 新字段
+          currentStory: storyText,
+          englishStory: englishStory,
+          chineseStory: chineseStory,
+          isLoading: false,
+          // 旧字段（兼容现有 WXML）
           aiStory: '',
           storyLoading: false,
-          storyError: '没有收到 AI 故事内容'
+          storyError: ''
+        })
+        this._cacheStoryAsync(word.english, fullStory, englishStory, chineseStory)
+        this._trackStudyAction(word.english, { generated: 1 })
+        this._showStoryWithTyping(storyText, requestId)
+        return
+      }
+
+      this.setData({
+        currentStory: '',
+        englishStory: '',
+        chineseStory: '',
+        isLoading: false,
+        aiStory: '',
+        storyLoading: false,
+        storyError: '没有收到 AI 故事内容'
+      })
+    } catch (e) {
+      if (requestId !== this.storyRequestId) {
+        return
+      }
+      this.setData({
+        currentStory: '',
+        englishStory: '',
+        chineseStory: '',
+        isLoading: false,
+        aiStory: '',
+        storyLoading: false,
+        storyError: 'AI 故事获取失败，请确认本地后端已启动'
+      })
+    }
+  },
+
+  _cacheStoryAsync(word, full, en, cn) {
+    wx.getStorage({
+      key: 'LOCAL_STORED_AI_STORIES',
+      success: (res) => {
+        const cache = res.data || {}
+        cache[word] = { full, en, cn, saveTime: Date.now() }
+        wx.setStorage({
+          key: 'LOCAL_STORED_AI_STORIES',
+          data: cache,
+          success: () => console.log(`=== 💾 ${word} 资产成功写入 ===`),
+          fail: (e) => console.error(`=== 💾 ${word} 写入失败 ===`, e)
         })
       },
       fail: () => {
-        if (requestId !== this.storyRequestId) {
-          return
-        }
-
-        this.setData({
-          aiStory: '',
-          storyLoading: false,
-          storyError: 'AI 故事获取失败，请确认本地后端已启动'
+        wx.setStorage({
+          key: 'LOCAL_STORED_AI_STORIES',
+          data: { [word]: { full, en, cn, saveTime: Date.now() } },
+          success: () => console.log(`=== 💾 ${word} 资产成功写入 ===`),
+          fail: (e) => console.error(`=== 💾 ${word} 写入失败 ===`, e)
         })
       }
+    })
+  },
+
+  _trackStudyAction(word, action) {
+    wx.getStorage({
+      key: STUDY_RECORD_STORAGE_KEY,
+      success: (res) => {
+        this._writeStudyRecord(word, action, res.data || {})
+      },
+      fail: () => {
+        this._writeStudyRecord(word, action, {})
+      }
+    })
+  },
+
+  _writeStudyRecord(word, action, records) {
+    const normalizedWord = String(word || '').trim().toLowerCase()
+    const current = findStoredRecord(records, normalizedWord) || {}
+    records[normalizedWord] = {
+      reviewCount: (current.reviewCount || 0) + (action.review || 0),
+      listenCount: (current.listenCount || 0) + (action.listen || 0),
+      cacheHitCount: (current.cacheHitCount || 0) + (action.cacheHit || 0),
+      generatedCount: (current.generatedCount || 0) + (action.generated || 0),
+      favorite: !!current.favorite,
+      lastReviewedAt: Date.now()
+    }
+
+    wx.setStorage({
+      key: STUDY_RECORD_STORAGE_KEY,
+      data: records,
+      fail: (e) => console.error('学习记录写入失败:', e)
     })
   },
 
   loadStoryByIndex(index) {
     const word = this.data.words[index]
     if (word) {
-      this.fetchAIStory(word)
+      this.loadAIStory(word)
     }
   },
 
@@ -232,17 +369,107 @@ Page({
     })
   },
 
-  playWithMultipleTTS(text) {
-    const ttsSources = [
-      {
-        name: 'youdao',
-        url: `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=1`
-      }
-    ]
-    this.tryPlayTTS(ttsSources, 0, text)
+  generateStoryNow() {
+    const word = this.data.words[this.data.currentIndex]
+    if (word) {
+      this.loadAIStory(word)
+    }
   },
 
-  tryPlayTTS(sources, index, text) {
+  _stopStoryTyping() {
+    if (this.storyTypingTimer) {
+      clearTimeout(this.storyTypingTimer)
+      this.storyTypingTimer = null
+    }
+  },
+
+  _showStoryWithTyping(story, requestId) {
+    const text = String(story || '')
+    if (!text) {
+      return
+    }
+
+    let index = 0
+    const tick = () => {
+      if (requestId !== this.storyRequestId) {
+        return
+      }
+
+      index += 1
+      this.setData({
+        aiStory: text.slice(0, index)
+      })
+
+      if (index < text.length) {
+        this.storyTypingTimer = setTimeout(tick, 24)
+      } else {
+        this.storyTypingTimer = null
+      }
+    }
+
+    tick()
+  },
+
+  playWithMultipleTTS(text) {
+    const readableText = buildReadableStoryText(text)
+    const chunks = splitReadableTTSChunks(readableText)
+    if (!chunks.length) {
+      wx.showToast({
+        title: '暂无内容可读',
+        icon: 'none',
+        duration: 1200
+      })
+      return
+    }
+
+    const playbackId = (this.ttsPlaybackId || 0) + 1
+    this.ttsPlaybackId = playbackId
+    this._playTTSChunks(chunks, 0, playbackId)
+  },
+
+  _playTTSChunks(chunks, chunkIndex, playbackId) {
+    if (playbackId !== this.ttsPlaybackId) {
+      return
+    }
+
+    if (chunkIndex >= chunks.length) {
+      return
+    }
+
+    const chunk = chunks[chunkIndex]
+    const ttsSources = [
+      {
+        name: 'local-tts',
+        url: `http://127.0.0.1:8000/api/tts?text=${encodeURIComponent(chunk)}`,
+        download: true
+      },
+      {
+        name: 'youdao-direct',
+        url: `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(chunk)}&type=1`
+      }
+    ]
+    this.tryPlayTTS(ttsSources, 0, () => {
+      this._playTTSChunks(chunks, chunkIndex + 1, playbackId)
+    }, playbackId)
+  },
+
+  _resetAudioContext() {
+    if (this.innerAudioContext) {
+      this.innerAudioContext.stop()
+      this.innerAudioContext.destroy()
+    }
+
+    this.innerAudioContext = wx.createInnerAudioContext()
+    this.innerAudioContext.obeyMuteSwitch = false
+    this.innerAudioContext.volume = 1
+    return this.innerAudioContext
+  },
+
+  tryPlayTTS(sources, index, onDone, playbackId) {
+    if (playbackId !== this.ttsPlaybackId) {
+      return
+    }
+
     if (index >= sources.length) {
       wx.showToast({
         title: '发音暂不可用',
@@ -252,18 +479,51 @@ Page({
       return
     }
     const source = sources[index]
-    if (!this.innerAudioContext) {
-      this.innerAudioContext = wx.createInnerAudioContext()
+
+    const playAudio = (src) => {
+      if (playbackId !== this.ttsPlaybackId) {
+        return
+      }
+      const audio = this._resetAudioContext()
+      audio.onEnded(() => {
+        console.log(`TTS播放成功: ${source.name}`)
+        if (typeof onDone === 'function') {
+          onDone()
+        }
+      })
+      audio.onError((err) => {
+        console.error(`TTS源 ${source.name} 失败，尝试下一个:`, err)
+        this.tryPlayTTS(sources, index + 1, onDone, playbackId)
+      })
+      audio.src = src
+      audio.play()
     }
-    this.innerAudioContext.src = source.url
-    this.innerAudioContext.play()
-    this.innerAudioContext.onEnded = () => {
-      console.log(`TTS播放成功: ${source.name}`)
+
+    if (source.download) {
+      wx.downloadFile({
+        url: source.url,
+        success: (res) => {
+          if (playbackId !== this.ttsPlaybackId) {
+            return
+          }
+
+          if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+            playAudio(res.tempFilePath)
+            return
+          }
+
+          console.error(`TTS源 ${source.name} 下载失败:`, res)
+          this.tryPlayTTS(sources, index + 1, onDone, playbackId)
+        },
+        fail: (err) => {
+          console.error(`TTS源 ${source.name} 下载失败:`, err)
+          this.tryPlayTTS(sources, index + 1, onDone, playbackId)
+        }
+      })
+      return
     }
-    this.innerAudioContext.onError = (err) => {
-      console.error(`TTS源 ${source.name} 失败，尝试下一个:`, err)
-      this.tryPlayTTS(sources, index + 1, text)
-    }
+
+    playAudio(source.url)
   },
 
   prevWord() {

@@ -1,24 +1,82 @@
 <!--pages/words/words.wxml-->
 <view class="container">
-  <view class="header">
-    <text class="title">单词列表</text>
+  <view class="nav-bar">
+    <view class="back-btn" bindtap="goBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="page-title">学习存储库</text>
   </view>
 
-  <view class="word-list">
-    <view class="word-item" 
-          wx:for="{{words}}" 
-          wx:key="index"
-          bindtap="playWord"
-          data-index="{{index}}">
-      <view class="word-emoji">
-        <text>{{item.emoji}}</text>
+  <view class="storage-hero">
+    <text class="hero-title">AI 学习资产中心</text>
+    <text class="hero-subtitle">保存已生成故事，沉淀孩子的本地学习记忆</text>
+  </view>
+
+  <view class="stats-grid">
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalStories}}</text>
+      <text class="stat-label">已存故事</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalReviews}}</text>
+      <text class="stat-label">复习次数</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalCacheHits}}</text>
+      <text class="stat-label">本地打开</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.favoriteCount}}</text>
+      <text class="stat-label">收藏单词</text>
+    </view>
+  </view>
+
+  <view class="latest-strip">
+    <text>最近保存：{{stats.latestSavedWord}}</text>
+    <text>{{stats.latestSavedTime}}</text>
+  </view>
+
+  <view class="empty-state" wx:if="{{!hasAssets}}">
+    <text class="empty-icon">🗂️</text>
+    <text class="empty-title">还没有本地学习资产</text>
+    <text class="empty-desc">先进入分类学习页生成 AI 故事，故事会自动保存到这里。</text>
+  </view>
+
+  <view class="asset-list" wx:else>
+    <view class="asset-card" wx:for="{{assets}}" wx:key="word">
+      <view class="asset-main" bindtap="toggleAsset" data-word="{{item.word}}">
+        <view class="asset-emoji">
+          <text>{{item.emoji}}</text>
+        </view>
+        <view class="asset-info">
+          <view class="asset-title-row">
+            <text class="asset-word">{{item.word}}</text>
+            <text class="asset-chinese">{{item.chinese}}</text>
+          </view>
+          <text class="asset-summary">{{item.summary}}</text>
+          <view class="asset-tags">
+            <text class="asset-tag">已本地保存</text>
+            <text class="asset-tag">复习 {{item.reviewCount}} 次</text>
+            <text class="asset-tag">本地打开 {{item.cacheHitCount}} 次</text>
+          </view>
+        </view>
       </view>
-      <view class="word-info">
-        <text class="word-english">{{item.english}}</text>
-        <text class="word-chinese">{{item.chinese}}</text>
-      </view>
-      <view class="word-sound">
-        <text class="sound-icon">🔊</text>
+
+      <view class="asset-detail" wx:if="{{expandedWord === item.word}}">
+        <text class="detail-label">完整故事</text>
+        <text class="detail-story">{{item.full}}</text>
+        <view class="detail-meta">
+          <text>保存：{{item.saveTimeText}}</text>
+          <text>发音：{{item.listenCount}} 次</text>
+        </view>
+        <view class="asset-actions">
+          <view class="action-btn primary" bindtap="continueLearning" data-category="{{item.category}}" data-word="{{item.word}}">
+            <text>继续学习</text>
+          </view>
+          <view class="action-btn danger" bindtap="deleteAsset" data-word="{{item.word}}" data-storage-key="{{item.storageKey}}">
+            <text>删除缓存</text>
+          </view>
+        </view>
       </view>
     </view>
   </view>

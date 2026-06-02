@@ -13,5 +13,11 @@ Page({
     wx.navigateTo({
       url: `/pages/learn/learn?type=${type}`
     })
+  },
+
+  goToStorage() {
+    wx.navigateTo({
+      url: '/pages/words/words'
+    })
   }
 })

@@ -1,4 +1,5 @@
 {
   "usingComponents": {},
-  "navigationBarTitleText": "Word List"
+  "navigationBarTitleText": "学习存储库",
+  "navigationStyle": "custom"
 }

@@ -33,9 +33,16 @@
       </view>
       <text class="category-name">数字</text>
     </view>
+
+    <view class="category-item storage-entry" bindtap="goToStorage">
+      <view class="icon-wrapper" style="background-color: #DDF7F0;">
+        <text class="icon">🗂️</text>
+      </view>
+      <text class="category-name">学习存储库</text>
+    </view>
   </view>
 
   <view class="footer">
-    <text class="tip">点击卡片开始学习吧！</text>
+    <text class="tip">点击卡片学习，生成的 AI 故事会进入学习存储库。</text>
   </view>
 </view>

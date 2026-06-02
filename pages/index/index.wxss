@@ -47,6 +47,21 @@
   transition: all 0.3s;
 }
 
+.storage-entry {
+  width: 620rpx;
+  height: 220rpx;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 32rpx;
+  padding: 0 42rpx;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, rgba(221, 247, 240, 0.95), rgba(255, 239, 201, 0.95));
+}
+
+.storage-entry .icon-wrapper {
+  margin-bottom: 0;
+}
+
 .category-item:active {
   transform: scale(0.95);
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);

@@ -1,43 +1,98 @@
 // pages/words/words.js
+const { buildStorageAssets, buildStorageStats } = require('./storageUtils')
+const WORD_CATALOG = require('./wordCatalog')
+
+const STORY_STORAGE_KEY = 'LOCAL_STORED_AI_STORIES'
+const RECORD_STORAGE_KEY = 'LOCAL_STUDY_RECORDS'
+
 Page({
   data: {
-    words: []
+    assets: [],
+    stats: buildStorageStats([]),
+    hasAssets: false,
+    expandedWord: ''
   },
 
-  onLoad() {
-    this.loadAllWords()
+  onShow() {
+    this.loadStorageLibrary()
   },
 
-  loadAllWords() {
-    const allWords = [
-      { english: 'Dog', chinese: '狗', emoji: '🐶' },
-      { english: 'Cat', chinese: '猫', emoji: '🐱' },
-      { english: 'Rabbit', chinese: '兔子', emoji: '🐰' },
-      { english: 'Apple', chinese: '苹果', emoji: '🍎' },
-      { english: 'Banana', chinese: '香蕉', emoji: '🍌' },
-      { english: 'Red', chinese: '红色', emoji: '🔴' },
-      { english: 'Blue', chinese: '蓝色', emoji: '🔵' },
-      { english: 'One', chinese: '一', emoji: '1️⃣' },
-      { english: 'Two', chinese: '二', emoji: '2️⃣' }
-    ]
+  loadStorageLibrary() {
+    this.readLocalStorage(STORY_STORAGE_KEY, (stories) => {
+      this.readLocalStorage(RECORD_STORAGE_KEY, (records) => {
+        const assets = buildStorageAssets(stories, records, WORD_CATALOG)
+        this.setData({
+          assets,
+          stats: buildStorageStats(assets),
+          hasAssets: assets.length > 0,
+          expandedWord: ''
+        })
+      })
+    })
+  },
 
+  readLocalStorage(key, callback) {
+    wx.getStorage({
+      key,
+      success: (res) => callback(res.data || {}),
+      fail: () => callback({})
+    })
+  },
+
+  toggleAsset(e) {
+    const word = e.currentTarget.dataset.word
     this.setData({
-      words: allWords
+      expandedWord: this.data.expandedWord === word ? '' : word
     })
   },
 
-  playWord(e) {
-    const index = e.currentTarget.dataset.index
-    const word = this.data.words[index]
-    
-    wx.showToast({
-      title: word.english,
-      icon: 'none',
-      duration: 1500
+  continueLearning(e) {
+    const category = e.currentTarget.dataset.category
+    const word = e.currentTarget.dataset.word
+    wx.navigateTo({
+      url: `/pages/learn/learn?type=${category}&word=${encodeURIComponent(word)}`
     })
+  },
 
-    wx.vibrateShort({
-      type: 'medium'
+  deleteAsset(e) {
+    const word = e.currentTarget.dataset.word
+    const storageKey = e.currentTarget.dataset.storageKey || word
+    wx.showModal({
+      title: '删除本地故事',
+      content: `确认删除 ${word} 的 AI 故事缓存吗？`,
+      confirmText: '删除',
+      confirmColor: '#D64545',
+      success: (result) => {
+        if (!result.confirm) {
+          return
+        }
+        this.readLocalStorage(STORY_STORAGE_KEY, (stories) => {
+          delete stories[storageKey]
+          wx.setStorage({
+            key: STORY_STORAGE_KEY,
+            data: stories,
+            success: () => {
+              wx.showToast({
+                title: '已删除',
+                icon: 'success',
+                duration: 1200
+              })
+              this.loadStorageLibrary()
+            },
+            fail: () => {
+              wx.showToast({
+                title: '删除失败',
+                icon: 'none',
+                duration: 1600
+              })
+            }
+          })
+        })
+      }
     })
+  },
+
+  goBack() {
+    wx.navigateBack()
   }
 })

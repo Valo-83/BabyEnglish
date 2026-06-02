@@ -1,4 +1,4 @@
-Page({
+﻿Page({
   data: {
     title: '',
     type: '',
@@ -46,32 +46,32 @@ Page({
   getWords(type) {
     const wordData = {
       'animals': [
-        { english: 'Dog', chinese: '狗', emoji: '🐶', bgColor: '#FFE5B4' },
-        { english: 'Cat', chinese: '猫', emoji: '🐱', bgColor: '#E8EAF6' },
-        { english: 'Rabbit', chinese: '兔子', emoji: '🐰', bgColor: '#FCE4EC' },
-        { english: 'Bird', chinese: '鸟', emoji: '🐦', bgColor: '#E1F5FE' },
-        { english: 'Fish', chinese: '鱼', emoji: '🐟', bgColor: '#E0F2F1' }
+        { english: 'dog', chinese: '狗', emoji: '🐶', bgColor: '#FFE5B4' },
+        { english: 'cat', chinese: '猫', emoji: '🐱', bgColor: '#E8EAF6' },
+        { english: 'rabbit', chinese: '兔子', emoji: '🐰', bgColor: '#FCE4EC' },
+        { english: 'bird', chinese: '鸟', emoji: '🐦', bgColor: '#E1F5FE' },
+        { english: 'fish', chinese: '鱼', emoji: '🐟', bgColor: '#E0F2F1' }
       ],
       'fruits': [
-        { english: 'Apple', chinese: '苹果', emoji: '🍎', bgColor: '#FFE5E5' },
-        { english: 'Banana', chinese: '香蕉', emoji: '🍌', bgColor: '#FFF9C4' },
-        { english: 'Orange', chinese: '橙子', emoji: '🍊', bgColor: '#FFF3E0' },
-        { english: 'Grape', chinese: '葡萄', emoji: '🍇', bgColor: '#F3E5F5' },
-        { english: 'Strawberry', chinese: '草莓', emoji: '🍓', bgColor: '#FFEBEE' }
+        { english: 'apple', chinese: '苹果', emoji: '🍎', bgColor: '#FFE5E5' },
+        { english: 'banana', chinese: '香蕉', emoji: '🍌', bgColor: '#FFF9C4' },
+        { english: 'orange', chinese: '橙子', emoji: '🍊', bgColor: '#FFF3E0' },
+        { english: 'grape', chinese: '葡萄', emoji: '🍇', bgColor: '#F3E5F5' },
+        { english: 'strawberry', chinese: '草莓', emoji: '🍓', bgColor: '#FFEBEE' }
       ],
       'colors': [
-        { english: 'Red', chinese: '红色', emoji: '🔴', bgColor: '#FFEBEE' },
-        { english: 'Blue', chinese: '蓝色', emoji: '🔵', bgColor: '#E3F2FD' },
-        { english: 'Green', chinese: '绿色', emoji: '🟢', bgColor: '#E8F5E9' },
-        { english: 'Yellow', chinese: '黄色', emoji: '🟡', bgColor: '#FFF9C4' },
-        { english: 'Purple', chinese: '紫色', emoji: '🟣', bgColor: '#F3E5F5' }
+        { english: 'red', chinese: '红色', emoji: '🔴', bgColor: '#FFEBEE' },
+        { english: 'blue', chinese: '蓝色', emoji: '🔵', bgColor: '#E3F2FD' },
+        { english: 'green', chinese: '绿色', emoji: '🟢', bgColor: '#E8F5E9' },
+        { english: 'yellow', chinese: '黄色', emoji: '🟡', bgColor: '#FFF9C4' },
+        { english: 'purple', chinese: '紫色', emoji: '🟣', bgColor: '#F3E5F5' }
       ],
       'numbers': [
-        { english: 'One', chinese: '一', emoji: '1️⃣', bgColor: '#FFF9C4' },
-        { english: 'Two', chinese: '二', emoji: '2️⃣', bgColor: '#E1F5FE' },
-        { english: 'Three', chinese: '三', emoji: '3️⃣', bgColor: '#F3E5F5' },
-        { english: 'Four', chinese: '四', emoji: '4️⃣', bgColor: '#E8F5E9' },
-        { english: 'Five', chinese: '五', emoji: '5️⃣', bgColor: '#FFE5B4' }
+        { english: 'one', chinese: '一', emoji: '1️⃣', bgColor: '#FFF9C4' },
+        { english: 'two', chinese: '二', emoji: '2️⃣', bgColor: '#E1F5FE' },
+        { english: 'three', chinese: '三', emoji: '3️⃣', bgColor: '#F3E5F5' },
+        { english: 'four', chinese: '四', emoji: '4️⃣', bgColor: '#E8F5E9' },
+        { english: 'five', chinese: '五', emoji: '5️⃣', bgColor: '#FFE5B4' }
       ]
     }
     return wordData[type] || []

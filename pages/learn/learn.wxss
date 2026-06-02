@@ -30,7 +30,7 @@
 
 .back-icon {
   font-size: 48rpx;
-  color: yellow;
+  color: black;
 }
 
 .page-title {
@@ -166,6 +166,8 @@
 }
 
 .story-title {
+  flex: 1;
+  min-width: 0;
   font-size: 30rpx;
   font-weight: bold;
   color: #333;

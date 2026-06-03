@@ -214,10 +214,13 @@
 /* === 故事浮层操作按钮 === */
 .story-actions {
   display: flex;
+  flex-direction: row;
   justify-content: center;
+  gap: 20rpx;
   padding: 12rpx 24rpx 20rpx;
   border-top: 1rpx solid #f5f5f5;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .story-action-btn {
@@ -236,6 +239,20 @@
 .mastered-btn {
   background: #4CAF50;
   color: white;
+}
+
+.story-audio-btn {
+  background: #FF9800;
+  color: white;
+}
+
+.story-audio-btn.audio-loading {
+  background: #BDBDBD;
+  opacity: 0.8;
+}
+
+.story-audio-btn.audio-playing {
+  background: #2196F3;
 }
 
 /* === 进度和导航 === */

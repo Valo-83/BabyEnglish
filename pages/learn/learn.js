@@ -28,7 +28,11 @@ Page({
     aiStory: '',
     storyLoading: false,
     storyError: '',
-    storyCollapsed: false
+    storyCollapsed: false,
+    // 故事音频
+    storyAudioLoading: false,
+    hasStoryAudio: false,
+    playingStoryAudio: false
   },
 
   onLoad(options) {
@@ -55,8 +59,15 @@ Page({
     this._stopStoryTyping()
     this.ttsPlaybackId = (this.ttsPlaybackId || 0) + 1
     if (this.innerAudioContext) {
+      this.innerAudioContext.stop()
       this.innerAudioContext.destroy()
+      this.innerAudioContext = null
     }
+    this.setData({
+      storyAudioLoading: false,
+      hasStoryAudio: false,
+      playingStoryAudio: false
+    })
   },
 
   getTitle(type) {
@@ -227,6 +238,7 @@ Page({
           storyLoading: false,
           storyError: ''
         })
+        this.checkStoryAudioCache()
         return
       }
     } catch (e) {
@@ -275,7 +287,8 @@ Page({
           // 旧字段（兼容现有 WXML）
           aiStory: '',
           storyLoading: false,
-          storyError: ''
+          storyError: '',
+          hasStoryAudio: false
         })
         this._cacheStoryAsync(word.english, fullStory, englishStory, chineseStory)
         this._trackStudyAction(word.english, { generated: 1 })
@@ -594,6 +607,106 @@ Page({
       .catch(() => {
         wx.showToast({ title: '操作失败', icon: 'none', duration: 1600 })
       })
+  },
+
+  checkStoryAudioCache() {
+    const word = this.data.selectedWord
+    if (!word) return
+
+    wx.request({
+      url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}`,
+      method: 'GET',
+      success: (res) => {
+        this.setData({ hasStoryAudio: res.statusCode === 200 })
+      },
+      fail: () => {
+        this.setData({ hasStoryAudio: false })
+      }
+    })
+  },
+
+  playStoryAudio() {
+    const word = this.data.selectedWord
+    if (!word) {
+      wx.showToast({ title: '请先选择单词', icon: 'none', duration: 1200 })
+      return
+    }
+
+    const englishText = this.data.englishStory || this.data.aiStory || ''
+    if (!englishText.trim()) {
+      wx.showToast({ title: '没有故事内容可播放', icon: 'none', duration: 1200 })
+      return
+    }
+
+    if (this.data.hasStoryAudio) {
+      this._downloadAndPlayStoryAudio(word)
+      return
+    }
+
+    this.setData({ storyAudioLoading: true })
+    wx.showLoading({ title: '生成故事音频...' })
+
+    wx.request({
+      url: 'http://127.0.0.1:8000/api/story_audio',
+      method: 'POST',
+      header: { 'content-type': 'application/json' },
+      data: { word: word, text: englishText },
+      success: (res) => {
+        wx.hideLoading()
+        this.setData({ storyAudioLoading: false })
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.success) {
+          this.setData({ hasStoryAudio: true })
+          this._downloadAndPlayStoryAudio(word)
+        } else {
+          const msg = (res.data && res.data.detail) || '音频生成失败'
+          wx.showToast({ title: msg, icon: 'none', duration: 2000 })
+        }
+      },
+      fail: () => {
+        wx.hideLoading()
+        this.setData({ storyAudioLoading: false })
+        wx.showToast({ title: '无法连接后端服务', icon: 'none', duration: 2000 })
+      }
+    })
+  },
+
+  _downloadAndPlayStoryAudio(word) {
+    this.setData({ playingStoryAudio: true })
+    wx.showLoading({ title: '加载音频...' })
+
+    wx.downloadFile({
+      url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}`,
+      success: (res) => {
+        wx.hideLoading()
+        if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
+          if (this.innerAudioContext) {
+            this.innerAudioContext.stop()
+            this.innerAudioContext.destroy()
+          }
+          const audio = wx.createInnerAudioContext()
+          audio.obeyMuteSwitch = false
+          audio.volume = 1
+          audio.onEnded(() => {
+            this.setData({ playingStoryAudio: false })
+          })
+          audio.onError((err) => {
+            console.error('故事音频播放失败:', err)
+            this.setData({ playingStoryAudio: false })
+          })
+          this.innerAudioContext = audio
+          audio.src = res.tempFilePath
+          audio.play()
+        } else {
+          this.setData({ playingStoryAudio: false })
+          wx.showToast({ title: '音频下载失败', icon: 'none', duration: 2000 })
+        }
+      },
+      fail: () => {
+        wx.hideLoading()
+        this.setData({ playingStoryAudio: false })
+        wx.showToast({ title: '音频下载失败', icon: 'none', duration: 2000 })
+      }
+    })
   },
 
   goBack() {

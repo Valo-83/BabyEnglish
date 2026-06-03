@@ -1,6 +1,7 @@
 // pages/words/words.js
-const { buildStorageAssets, buildStorageStats } = require('./storageUtils')
+const { buildStorageAssets, buildStorageStats, buildTodayReviewAssets } = require('./storageUtils')
 const WORD_CATALOG = require('./wordCatalog')
+const { markStudyRecordMastered } = require('../shared/studyRecordUtils')
 
 const STORY_STORAGE_KEY = 'LOCAL_STORED_AI_STORIES'
 const RECORD_STORAGE_KEY = 'LOCAL_STUDY_RECORDS'
@@ -10,7 +11,13 @@ Page({
     assets: [],
     stats: buildStorageStats([]),
     hasAssets: false,
-    expandedWord: ''
+    expandedWord: '',
+    todayReview: [],
+    statusMap: {
+      new: '新保存',
+      reviewing: '复习中',
+      mastered: '已熟悉'
+    }
   },
 
   onShow() {
@@ -21,11 +28,13 @@ Page({
     this.readLocalStorage(STORY_STORAGE_KEY, (stories) => {
       this.readLocalStorage(RECORD_STORAGE_KEY, (records) => {
         const assets = buildStorageAssets(stories, records, WORD_CATALOG)
+        const todayReview = buildTodayReviewAssets(assets)
         this.setData({
           assets,
           stats: buildStorageStats(assets),
           hasAssets: assets.length > 0,
-          expandedWord: ''
+          expandedWord: '',
+          todayReview
         })
       })
     })
@@ -51,6 +60,59 @@ Page({
     const word = e.currentTarget.dataset.word
     wx.navigateTo({
       url: `/pages/learn/learn?type=${category}&word=${encodeURIComponent(word)}`
+    })
+  },
+
+  startReview(e) {
+    const category = e.currentTarget.dataset.category
+    const word = e.currentTarget.dataset.word
+    wx.navigateTo({
+      url: `/pages/learn/learn?type=${category}&word=${encodeURIComponent(word)}&mode=review`
+    })
+  },
+
+  continueReview(e) {
+    const category = e.currentTarget.dataset.category
+    const word = e.currentTarget.dataset.word
+    wx.navigateTo({
+      url: `/pages/learn/learn?type=${category}&word=${encodeURIComponent(word)}&mode=review`
+    })
+  },
+
+  markAsMastered(e) {
+    const word = e.currentTarget.dataset.word
+    const that = this
+
+    this.readLocalStorage(RECORD_STORAGE_KEY, (records) => {
+      const updated = markStudyRecordMastered(records, word)
+      if (!updated) {
+        wx.showToast({
+          title: '暂无学习记录',
+          icon: 'none',
+          duration: 1600
+        })
+        return
+      }
+
+      wx.setStorage({
+        key: RECORD_STORAGE_KEY,
+        data: records,
+        success: () => {
+          wx.showToast({
+            title: '已标为熟悉',
+            icon: 'success',
+            duration: 1200
+          })
+          that.loadStorageLibrary()
+        },
+        fail: () => {
+          wx.showToast({
+            title: '操作失败',
+            icon: 'none',
+            duration: 1600
+          })
+        }
+      })
     })
   },
 

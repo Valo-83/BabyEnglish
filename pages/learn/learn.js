@@ -1,11 +1,14 @@
 ﻿// pages/learn/learn.js
 const {
   buildReadableStoryText,
-  findStoredRecord,
   findStoredStory,
   findWordIndex,
   splitReadableTTSChunks
 } = require('./learnUtils')
+const {
+  markStudyRecordMastered,
+  updateStudyRecord
+} = require('../shared/studyRecordUtils')
 
 const STUDY_RECORD_STORAGE_KEY = 'LOCAL_STUDY_RECORDS'
 
@@ -34,6 +37,8 @@ Page({
     const initialIndex = findWordIndex(words, options.word)
     this.storyRequestId = 0
     this.innerAudioContext = null
+    this.learnMode = options.mode === 'review' ? 'review' : 'normal'
+    this.studyRecordWriteQueue = Promise.resolve()
     this.setData({
       type: type,
       title: this.getTitle(type),
@@ -193,7 +198,9 @@ Page({
       storyError: '',
       storyCollapsed: false
     })
-    this._trackStudyAction(word.english, { review: 1 })
+    if (this.learnMode === 'review') {
+      this._trackStudyAction(word.english, { review: 1 })
+    }
 
     // 1. 尝试从本地缓存读取
     try {
@@ -326,33 +333,37 @@ Page({
   },
 
   _trackStudyAction(word, action) {
-    wx.getStorage({
-      key: STUDY_RECORD_STORAGE_KEY,
-      success: (res) => {
-        this._writeStudyRecord(word, action, res.data || {})
-      },
-      fail: () => {
-        this._writeStudyRecord(word, action, {})
-      }
+    const previousWrite = this.studyRecordWriteQueue || Promise.resolve()
+    this.studyRecordWriteQueue = previousWrite
+      .catch(() => {})
+      .then(() => this._readStudyRecords())
+      .then((records) => {
+        updateStudyRecord(records, word, action)
+        return this._saveStudyRecords(records)
+      })
+      .catch((e) => console.error('学习记录写入失败:', e))
+
+    return this.studyRecordWriteQueue
+  },
+
+  _readStudyRecords() {
+    return new Promise((resolve) => {
+      wx.getStorage({
+        key: STUDY_RECORD_STORAGE_KEY,
+        success: (res) => resolve(res.data || {}),
+        fail: () => resolve({})
+      })
     })
   },
 
-  _writeStudyRecord(word, action, records) {
-    const normalizedWord = String(word || '').trim().toLowerCase()
-    const current = findStoredRecord(records, normalizedWord) || {}
-    records[normalizedWord] = {
-      reviewCount: (current.reviewCount || 0) + (action.review || 0),
-      listenCount: (current.listenCount || 0) + (action.listen || 0),
-      cacheHitCount: (current.cacheHitCount || 0) + (action.cacheHit || 0),
-      generatedCount: (current.generatedCount || 0) + (action.generated || 0),
-      favorite: !!current.favorite,
-      lastReviewedAt: Date.now()
-    }
-
-    wx.setStorage({
-      key: STUDY_RECORD_STORAGE_KEY,
-      data: records,
-      fail: (e) => console.error('学习记录写入失败:', e)
+  _saveStudyRecords(records) {
+    return new Promise((resolve, reject) => {
+      wx.setStorage({
+        key: STUDY_RECORD_STORAGE_KEY,
+        data: records,
+        success: resolve,
+        fail: reject
+      })
     })
   },
 
@@ -559,6 +570,30 @@ Page({
     }, () => {
       this.loadStoryByIndex(nextIndex)
     })
+  },
+
+  markAsMastered() {
+    const word = this.data.words[this.data.currentIndex]
+    if (!word) return
+
+    const previousWrite = this.studyRecordWriteQueue || Promise.resolve()
+    this.studyRecordWriteQueue = previousWrite
+      .catch(() => {})
+      .then(() => this._readStudyRecords())
+      .then((records) => {
+        const updated = markStudyRecordMastered(records, word.english)
+        if (!updated) {
+          wx.showToast({ title: '暂无学习记录', icon: 'none', duration: 1600 })
+          return null
+        }
+
+        return this._saveStudyRecords(records).then(() => {
+          wx.showToast({ title: '已标为熟悉', icon: 'success', duration: 1200 })
+        })
+      })
+      .catch(() => {
+        wx.showToast({ title: '操作失败', icon: 'none', duration: 1600 })
+      })
   },
 
   goBack() {

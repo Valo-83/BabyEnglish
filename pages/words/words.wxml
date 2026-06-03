@@ -12,28 +12,40 @@
     <text class="hero-subtitle">保存已生成故事，沉淀孩子的本地学习记忆</text>
   </view>
 
-  <view class="stats-grid">
-    <view class="stat-item">
-      <text class="stat-value">{{stats.totalStories}}</text>
-      <text class="stat-label">已存故事</text>
+  <view class="storage-value-section">
+    <text class="section-title">本地学习资产</text>
+    <view class="value-grid">
+      <view class="value-item">
+        <text class="value-number">{{stats.totalStories}}</text>
+        <text class="value-label">已保存 AI 故事</text>
+      </view>
+      <view class="value-item">
+        <text class="value-number">{{stats.totalCacheHits}}</text>
+        <text class="value-label">本地打开次数</text>
+      </view>
+      <view class="value-item">
+        <text class="value-number">{{stats.savedValueCount}}</text>
+        <text class="value-label">节省重复生成</text>
+      </view>
     </view>
-    <view class="stat-item">
-      <text class="stat-value">{{stats.totalReviews}}</text>
-      <text class="stat-label">复习次数</text>
-    </view>
-    <view class="stat-item">
-      <text class="stat-value">{{stats.totalCacheHits}}</text>
-      <text class="stat-label">本地打开</text>
-    </view>
-    <view class="stat-item">
-      <text class="stat-value">{{stats.favoriteCount}}</text>
-      <text class="stat-label">收藏单词</text>
-    </view>
+    <text class="value-desc">这些故事已保存在本地，可反复复习，减少重复生成，让 AI 内容沉淀为孩子自己的学习资产。</text>
   </view>
 
-  <view class="latest-strip">
-    <text>最近保存：{{stats.latestSavedWord}}</text>
-    <text>{{stats.latestSavedTime}}</text>
+  <view class="today-review-section" wx:if="{{todayReview.length}}">
+    <text class="section-title">今日复习</text>
+    <text class="section-subtitle">今日建议复习 {{todayReview.length}} 个单词</text>
+    <view class="review-cards">
+      <view class="review-card" wx:for="{{todayReview}}" wx:key="word">
+        <text class="review-emoji">{{item.emoji}}</text>
+        <view class="review-info">
+          <text class="review-word">{{item.word}}</text>
+          <text class="review-meta">上次学习：{{item.relativeTime}}  ·  复习 {{item.reviewCount}} 次</text>
+        </view>
+        <view class="review-btn" bindtap="startReview" data-word="{{item.word}}" data-category="{{item.category}}">
+          <text>开始复习</text>
+        </view>
+      </view>
+    </view>
   </view>
 
   <view class="empty-state" wx:if="{{!hasAssets}}">
@@ -58,6 +70,7 @@
             <text class="asset-tag">已本地保存</text>
             <text class="asset-tag">复习 {{item.reviewCount}} 次</text>
             <text class="asset-tag">本地打开 {{item.cacheHitCount}} 次</text>
+            <text class="asset-tag status-tag status-{{item.status}}">{{statusMap[item.status]}}</text>
           </view>
         </view>
       </view>
@@ -68,6 +81,14 @@
         <view class="detail-meta">
           <text>保存：{{item.saveTimeText}}</text>
           <text>发音：{{item.listenCount}} 次</text>
+        </view>
+        <view class="mini-actions">
+          <view class="mini-btn mastered-btn" bindtap="markAsMastered" data-word="{{item.word}}" wx:if="{{item.status !== 'mastered'}}">
+            <text>标为已熟悉</text>
+          </view>
+          <view class="mini-btn review-btn-secondary" bindtap="continueReview" data-category="{{item.category}}" data-word="{{item.word}}">
+            <text>继续复习</text>
+          </view>
         </view>
         <view class="asset-actions">
           <view class="action-btn primary" bindtap="continueLearning" data-category="{{item.category}}" data-word="{{item.word}}">

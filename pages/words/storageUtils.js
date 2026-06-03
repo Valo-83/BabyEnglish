@@ -26,6 +26,33 @@ function formatTime(timestamp) {
   return `${month}-${day} ${hour}:${minute}`
 }
 
+function formatRelativeTime(timestamp) {
+  if (!timestamp) {
+    return '更早'
+  }
+
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) {
+    return '更早'
+  }
+
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const yesterdayStart = todayStart - 86400000
+  const diffDays = Math.floor((todayStart - new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()) / 86400000)
+
+  if (date.getTime() >= todayStart) {
+    return '今天'
+  }
+  if (date.getTime() >= yesterdayStart) {
+    return '昨天'
+  }
+  if (diffDays > 0 && diffDays < 30) {
+    return `${diffDays} 天前`
+  }
+  return '更早'
+}
+
 function makeSummary(text) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim()
   if (!normalized) {
@@ -64,12 +91,44 @@ function buildStorageAssets(stories, records, catalog) {
         reviewCount: record.reviewCount || 0,
         listenCount: record.listenCount || 0,
         cacheHitCount: record.cacheHitCount || 0,
+        generatedCount: record.generatedCount || 0,
         favorite: !!record.favorite,
+        status: record.status || 'new',
         lastReviewedAt: record.lastReviewedAt || 0,
-        lastReviewedText: formatTime(record.lastReviewedAt)
+        lastReviewedText: formatTime(record.lastReviewedAt),
+        masteredAt: record.masteredAt || null
       }
     })
     .sort((a, b) => (b.saveTime || 0) - (a.saveTime || 0))
+}
+
+function buildTodayReviewAssets(assets, maxCount) {
+  const limit = maxCount || 3
+  const safeAssets = assets || []
+
+  return safeAssets
+    .filter(function (item) {
+      return item.status !== 'mastered'
+    })
+    .sort(function (a, b) {
+      const reviewDiff = (a.reviewCount || 0) - (b.reviewCount || 0)
+      if (reviewDiff !== 0) {
+        return reviewDiff
+      }
+      return (a.lastReviewedAt || 0) - (b.lastReviewedAt || 0)
+    })
+    .slice(0, limit)
+    .map(function (item) {
+      return {
+        word: item.word,
+        chinese: item.chinese,
+        emoji: item.emoji,
+        category: item.category,
+        reviewCount: item.reviewCount,
+        lastReviewedAt: item.lastReviewedAt,
+        relativeTime: formatRelativeTime(item.lastReviewedAt)
+      }
+    })
 }
 
 function buildStorageStats(assets) {
@@ -78,9 +137,12 @@ function buildStorageStats(assets) {
 
   return {
     totalStories: safeAssets.length,
-    totalReviews: safeAssets.reduce((sum, item) => sum + (item.reviewCount || 0), 0),
-    totalCacheHits: safeAssets.reduce((sum, item) => sum + (item.cacheHitCount || 0), 0),
-    favoriteCount: safeAssets.filter((item) => item.favorite).length,
+    totalReviews: safeAssets.reduce(function (sum, item) { return sum + (item.reviewCount || 0) }, 0),
+    totalCacheHits: safeAssets.reduce(function (sum, item) { return sum + (item.cacheHitCount || 0) }, 0),
+    savedValueCount: safeAssets.reduce(function (sum, item) { return sum + (item.cacheHitCount || 0) }, 0),
+    favoriteCount: safeAssets.filter(function (item) { return item.favorite }).length,
+    masteredCount: safeAssets.filter(function (item) { return item.status === 'mastered' }).length,
+    reviewingCount: safeAssets.filter(function (item) { return item.status === 'reviewing' }).length,
     latestSavedWord: latest ? latest.word : '暂无',
     latestSavedTime: latest ? latest.saveTimeText : '暂无'
   }
@@ -89,5 +151,7 @@ function buildStorageStats(assets) {
 module.exports = {
   buildStorageAssets,
   buildStorageStats,
-  formatTime
+  buildTodayReviewAssets,
+  formatTime,
+  formatRelativeTime
 }

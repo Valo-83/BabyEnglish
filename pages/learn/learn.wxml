@@ -66,6 +66,12 @@
           <text class="sound-text">生成 AI 故事</text>
         </view>
       </view>
+
+      <view class="story-actions" wx:if="{{selectedWord && !storyCollapsed}}">
+        <view class="story-action-btn mastered-btn" bindtap="markAsMastered">
+          <text>标为已熟悉</text>
+        </view>
+      </view>
     </view>
   </view>
 

@@ -36,6 +36,31 @@
     <text class="value-desc">这些故事已保存在本地，可反复复习，减少重复生成，让 AI 内容沉淀为孩子自己的学习资产。</text>
   </view>
 
+  <view class="filter-section" wx:if="{{hasAssets}}">
+    <input class="search-input"
+           value="{{searchKeyword}}"
+           bindinput="onSearchInput"
+           placeholder="搜索单词或故事内容" />
+    <scroll-view class="filter-row" scroll-x="{{true}}">
+      <view class="filter-chip {{categoryFilter === item.value ? 'active' : ''}}"
+            wx:for="{{categoryOptions}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            catchtap="selectCategory">
+        <text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+    <scroll-view class="filter-row" scroll-x="{{true}}">
+      <view class="filter-chip status-chip {{statusFilter === item.value ? 'active' : ''}}"
+            wx:for="{{statusOptions}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            catchtap="selectStatus">
+        <text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
   <view class="today-review-section" wx:if="{{todayReview.length}}">
     <text class="section-title">今日复习</text>
     <text class="section-subtitle">今日建议复习 {{todayReview.length}} 个单词</text>
@@ -57,6 +82,12 @@
     <text class="empty-icon">🗂️</text>
     <text class="empty-title">还没有本地学习资产</text>
     <text class="empty-desc">先进入分类学习页生成 AI 故事，故事会自动保存到这里。</text>
+  </view>
+
+  <view class="empty-state" wx:elif="{{hasAssets && !hasFilteredAssets}}">
+    <text class="empty-icon">🔎</text>
+    <text class="empty-title">没有找到匹配内容</text>
+    <text class="empty-desc">可以换一个单词、故事关键词或筛选条件试试。</text>
   </view>
 
   <view class="asset-list" wx:else>

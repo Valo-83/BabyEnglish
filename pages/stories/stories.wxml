@@ -12,10 +12,41 @@
     <text class="hero-subtitle">这里保存每一次生成的 AI 故事，以及已经缓存到本地的故事音频。</text>
   </view>
 
+  <view class="filter-section" wx:if="{{hasStories}}">
+    <input class="search-input"
+           value="{{searchKeyword}}"
+           bindinput="onSearchInput"
+           placeholder="搜索单词或故事内容" />
+    <scroll-view class="filter-row" scroll-x="{{true}}">
+      <view class="filter-chip {{categoryFilter === item.value ? 'active' : ''}}"
+            wx:for="{{categoryOptions}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            catchtap="selectCategory">
+        <text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+    <scroll-view class="filter-row" scroll-x="{{true}}">
+      <view class="filter-chip audio-chip {{audioFilter === item.value ? 'active' : ''}}"
+            wx:for="{{audioOptions}}"
+            wx:key="value"
+            data-value="{{item.value}}"
+            catchtap="selectAudio">
+        <text>{{item.label}}</text>
+      </view>
+    </scroll-view>
+  </view>
+
   <view class="empty-state" wx:if="{{!hasStories}}">
     <text class="empty-icon">📘</text>
     <text class="empty-title">还没有小故事</text>
     <text class="empty-desc">进入学习页生成 AI 故事后，会自动保存到这里。</text>
+  </view>
+
+  <view class="empty-state" wx:elif="{{hasStories && !hasFilteredStories}}">
+    <text class="empty-icon">🔎</text>
+    <text class="empty-title">没有找到匹配故事</text>
+    <text class="empty-desc">可以换一个单词、故事关键词或筛选条件试试。</text>
   </view>
 
   <view class="story-list" wx:else>

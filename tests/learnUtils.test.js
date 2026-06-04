@@ -4,11 +4,14 @@ const {
   buildReadableStoryText,
   buildStoryAudioCacheEntry,
   buildStoryAudioCacheKey,
+  buildStoredStoryVersion,
   extractEnglishForAudio,
+  appendStoredStoryVersion,
   findStoryAudioCacheEntry,
   findStoredRecord,
   findStoredStory,
   findWordIndex,
+  normalizeStoredStoryBundle,
   parseAIStoryPayload,
   splitReadableTTSChunks
 } = require('../pages/learn/learnUtils')
@@ -105,11 +108,14 @@ assert(splitReadableTTSChunks('abcdefghijklmnopqrstuvwxyz', 8).every((chunk) => 
 
 assert.strictEqual(buildStoryAudioCacheKey(' Dog '), 'dog')
 assert.strictEqual(buildStoryAudioCacheKey('sky blue'), 'sky blue')
+assert.strictEqual(buildStoryAudioCacheKey('dog', 'dog_2000'), 'dog_2000')
 assert.deepStrictEqual(
-  buildStoryAudioCacheEntry('Dog', 'wxfile://saved-dog.mp3', 1717200000000),
+  buildStoryAudioCacheEntry('Dog', 'wxfile://saved-dog.mp3', 1717200000000, 'dog_2000'),
   {
     filePath: 'wxfile://saved-dog.mp3',
-    saveTime: 1717200000000
+    saveTime: 1717200000000,
+    storyId: 'dog_2000',
+    word: 'dog'
   }
 )
 assert.strictEqual(
@@ -124,11 +130,53 @@ assert.strictEqual(
 assert.strictEqual(
   findStoryAudioCacheEntry(
     {
+      dog_2000: { filePath: 'wxfile://saved-dog-2.mp3', saveTime: 1717200000001 }
+    },
+    'Dog',
+    'dog_2000'
+  ).filePath,
+  'wxfile://saved-dog-2.mp3'
+)
+assert.strictEqual(
+  findStoryAudioCacheEntry(
+    {
+      dog: { filePath: 'wxfile://saved-dog.mp3', saveTime: 1717200000000 }
+    },
+    'Dog',
+    'dog_2000'
+  ),
+  null
+)
+assert.strictEqual(
+  findStoryAudioCacheEntry(
+    {
       dog: { saveTime: 1717200000000 }
     },
     'dog'
   ),
   null
 )
+
+const legacyBundle = normalizeStoredStoryBundle(
+  { full: 'Old dog story.', en: 'Old dog.', cn: '旧故事', saveTime: 1717200000000 },
+  'dog'
+)
+assert.strictEqual(legacyBundle.activeStoryId, 'dog_legacy')
+assert.strictEqual(legacyBundle.stories.length, 1)
+assert.strictEqual(legacyBundle.stories[0].full, 'Old dog story.')
+
+const newVersion = buildStoredStoryVersion(
+  'dog',
+  'New dog story.',
+  'New dog.',
+  '新故事',
+  1717200001000,
+  'dog_1717200001000'
+)
+const versionedCache = appendStoredStoryVersion({ dog: legacyBundle }, 'dog', newVersion)
+assert.strictEqual(versionedCache.dog.activeStoryId, 'dog_1717200001000')
+assert.strictEqual(versionedCache.dog.stories.length, 2)
+assert.strictEqual(findStoredStory(versionedCache, 'dog').full, 'New dog story.')
+assert.strictEqual(versionedCache.dog.stories[1].id, 'dog_legacy')
 
 console.log('learnUtils tests passed')

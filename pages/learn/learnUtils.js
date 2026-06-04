@@ -17,7 +17,15 @@ function findWordIndex(words, targetWord) {
 
 function findStoredStory(stories, targetWord) {
   const safeStories = stories || {}
-  return safeStories[targetWord] || null
+  const stored = safeStories[targetWord]
+  if (!stored) {
+    return null
+  }
+
+  const bundle = normalizeStoredStoryBundle(stored, targetWord)
+  return bundle.stories.find(function (story) {
+    return story.id === bundle.activeStoryId
+  }) || bundle.stories[0] || null
 }
 
 function findStoredRecord(records, targetWord) {
@@ -25,31 +33,139 @@ function findStoredRecord(records, targetWord) {
   return safeRecords[targetWord] || null
 }
 
-function buildStoryAudioCacheKey(word) {
-  return normalizeWord(word)
+function buildLegacyStoryId(word) {
+  const key = normalizeWord(word)
+  return key ? `${key}_legacy` : ''
 }
 
-function buildStoryAudioCacheEntry(word, filePath, saveTime) {
+function buildStoryAudioCacheKey(word, storyId) {
+  return normalizeWord(storyId) || normalizeWord(word)
+}
+
+function buildStoryAudioCacheEntry(word, filePath, saveTime, storyId) {
   const normalizedPath = String(filePath || '').trim()
-  if (!buildStoryAudioCacheKey(word) || !normalizedPath) {
+  if (!buildStoryAudioCacheKey(word, storyId) || !normalizedPath) {
     return null
   }
 
   return {
     filePath: normalizedPath,
-    saveTime: saveTime || Date.now()
+    saveTime: saveTime || Date.now(),
+    storyId: normalizeWord(storyId),
+    word: normalizeWord(word)
   }
 }
 
-function findStoryAudioCacheEntry(cache, word) {
+function findStoryAudioCacheEntry(cache, word, storyId) {
   const safeCache = cache || {}
-  const key = buildStoryAudioCacheKey(word)
+  const key = buildStoryAudioCacheKey(word, storyId)
   const entry = key ? safeCache[key] : null
   if (!entry || !entry.filePath) {
-    return null
+    if (storyId && storyId !== buildLegacyStoryId(word)) {
+      return null
+    }
+
+    const legacyEntry = safeCache[normalizeWord(word)]
+    return legacyEntry && legacyEntry.filePath ? legacyEntry : null
   }
 
   return entry
+}
+
+function buildStoredStoryVersion(word, full, en, cn, saveTime, id) {
+  const normalizedWord = normalizeWord(word)
+  const createdAt = saveTime || Date.now()
+  const storyId = String(id || `${normalizedWord}_${createdAt}`).trim()
+
+  if (!normalizedWord || !storyId) {
+    return null
+  }
+
+  return {
+    id: storyId,
+    word: normalizedWord,
+    full: normalizeStoryText(full),
+    en: normalizeStoryText(en),
+    cn: normalizeStoryText(cn),
+    saveTime: createdAt,
+    audioGenerated: false
+  }
+}
+
+function normalizeStoredStoryBundle(stored, word) {
+  const normalizedWord = normalizeWord(word)
+  if (!stored || !normalizedWord) {
+    return { activeStoryId: '', stories: [] }
+  }
+
+  if (Array.isArray(stored.stories)) {
+    const stories = stored.stories
+      .map(function (story, index) {
+        const saveTime = story.saveTime || story.createdAt || Date.now() + index
+        return buildStoredStoryVersion(
+          normalizedWord,
+          story.full || story.story || story.ai_story || story.en || '',
+          story.en || story.englishStory || '',
+          story.cn || story.chineseStory || '',
+          saveTime,
+          story.id || `${normalizedWord}_${saveTime}_${index}`
+        )
+      })
+      .filter(function (story) {
+        return story && (story.full || story.en || story.cn)
+      })
+
+    const activeStoryId = stories.some(function (story) {
+      return story.id === stored.activeStoryId
+    })
+      ? stored.activeStoryId
+      : (stories[0] && stories[0].id) || ''
+
+    return { activeStoryId, stories }
+  }
+
+  const full = stored.full || stored.story || stored.ai_story || stored.en || ''
+  const en = stored.en || stored.englishStory || ''
+  const cn = stored.cn || stored.chineseStory || ''
+  const legacyStory = buildStoredStoryVersion(
+    normalizedWord,
+    full,
+    en,
+    cn,
+    stored.saveTime || stored.createdAt || Date.now(),
+    stored.id || buildLegacyStoryId(normalizedWord)
+  )
+
+  return {
+    activeStoryId: legacyStory ? legacyStory.id : '',
+    stories: legacyStory && (legacyStory.full || legacyStory.en || legacyStory.cn)
+      ? [legacyStory]
+      : []
+  }
+}
+
+function appendStoredStoryVersion(cache, word, storyVersion) {
+  const safeCache = Object.assign({}, cache || {})
+  const normalizedWord = normalizeWord(word)
+  const story = storyVersion && storyVersion.id
+    ? storyVersion
+    : null
+
+  if (!normalizedWord || !story) {
+    return safeCache
+  }
+
+  const bundle = normalizeStoredStoryBundle(safeCache[normalizedWord], normalizedWord)
+  const stories = [story].concat(bundle.stories.filter(function (item) {
+    return item.id !== story.id
+  }))
+
+  safeCache[normalizedWord] = {
+    activeStoryId: story.id,
+    stories
+  }
+
+  return safeCache
 }
 
 function buildReadableStoryText(story, maxLength = 180) {
@@ -241,12 +357,15 @@ module.exports = {
   buildReadableStoryText,
   buildStoryAudioCacheEntry,
   buildStoryAudioCacheKey,
+  buildStoredStoryVersion,
   buildStoryDisplayText,
   extractEnglishForAudio,
+  appendStoredStoryVersion,
   findStoryAudioCacheEntry,
   findStoredRecord,
   findWordIndex,
   findStoredStory,
+  normalizeStoredStoryBundle,
   parseAIStoryPayload,
   splitReadableTTSChunks
 }

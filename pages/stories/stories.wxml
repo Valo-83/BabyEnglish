@@ -1,0 +1,62 @@
+<!--pages/stories/stories.wxml-->
+<view class="container">
+  <view class="nav-bar">
+    <view class="back-btn" bindtap="goBack">
+      <text class="back-icon">←</text>
+    </view>
+    <text class="page-title">我的小故事</text>
+  </view>
+
+  <view class="stories-hero">
+    <text class="hero-title">我的小故事</text>
+    <text class="hero-subtitle">这里保存每一次生成的 AI 故事，以及已经缓存到本地的故事音频。</text>
+  </view>
+
+  <view class="empty-state" wx:if="{{!hasStories}}">
+    <text class="empty-icon">📘</text>
+    <text class="empty-title">还没有小故事</text>
+    <text class="empty-desc">进入学习页生成 AI 故事后，会自动保存到这里。</text>
+  </view>
+
+  <view class="story-list" wx:else>
+    <view class="story-card" wx:for="{{stories}}" wx:key="id">
+      <view class="story-top">
+        <view class="story-emoji">{{item.emoji}}</view>
+        <view class="story-title-area">
+          <view class="story-title-row">
+            <text class="story-word">{{item.word}}</text>
+            <text class="story-chinese">{{item.chinese}}</text>
+          </view>
+          <text class="story-meta">第 {{item.storyIndex}} 篇 · {{item.saveTimeText}}</text>
+        </view>
+      </view>
+
+      <view class="story-tags">
+        <text class="story-tag audio-ready" wx:if="{{item.hasAudio}}">音频已缓存</text>
+        <text class="story-tag audio-missing" wx:else>暂无本地音频</text>
+      </view>
+
+      <text class="story-text">{{item.displayStory}}</text>
+
+      <view class="story-actions">
+        <view class="story-btn play-btn {{playingStoryId === item.id ? 'playing' : ''}}"
+              wx:if="{{item.hasAudio}}"
+              catchtap="playAudio"
+              data-id="{{item.id}}"
+              data-file="{{item.audioFilePath}}">
+          <text wx:if="{{playingStoryId === item.id}}">播放中</text>
+          <text wx:else>播放音频</text>
+        </view>
+        <view class="story-btn disabled-btn" wx:else>
+          <text>未缓存音频</text>
+        </view>
+        <view class="story-btn learn-btn"
+              catchtap="continueLearning"
+              data-category="{{item.category}}"
+              data-word="{{item.word}}">
+          <text>继续学习</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

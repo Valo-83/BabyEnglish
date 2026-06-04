@@ -1,3 +1,10 @@
+const {
+  buildStoryAudioCacheKey,
+  buildStoryDisplayText,
+  findStoryAudioCacheEntry,
+  normalizeStoredStoryBundle
+} = require('../learn/learnUtils')
+
 function normalizeWordKey(word) {
   return String(word || '').trim().toLowerCase()
 }
@@ -69,7 +76,10 @@ function buildStorageAssets(stories, records, catalog) {
   return Object.keys(safeStories)
     .map((rawWord) => {
       const normalizedWord = normalizeWordKey(rawWord)
-      const story = safeStories[rawWord] || {}
+      const storyBundle = normalizeStoredStoryBundle(safeStories[rawWord], rawWord)
+      const story = storyBundle.stories.find(function (item) {
+        return item.id === storyBundle.activeStoryId
+      }) || storyBundle.stories[0] || {}
       const record = safeRecords[rawWord] || safeRecords[normalizedWord] || {}
       const meta = catalogMap[normalizedWord] || {}
       const displayWord = normalizeWordKey(meta.english || rawWord)
@@ -85,6 +95,7 @@ function buildStorageAssets(stories, records, catalog) {
         full,
         englishStory: story.en || story.englishStory || '',
         chineseStory: story.cn || story.chineseStory || '',
+        storyCount: storyBundle.stories.length || (full ? 1 : 0),
         summary: makeSummary(full),
         saveTime,
         saveTimeText: formatTime(saveTime),
@@ -131,12 +142,51 @@ function buildTodayReviewAssets(assets, maxCount) {
     })
 }
 
+function buildMyStoryAssets(stories, audioCache, catalog) {
+  const safeStories = stories || {}
+  const safeAudioCache = audioCache || {}
+  const catalogMap = buildCatalogMap(catalog)
+
+  return Object.keys(safeStories)
+    .reduce(function (list, rawWord) {
+      const normalizedWord = normalizeWordKey(rawWord)
+      const meta = catalogMap[normalizedWord] || {}
+      const bundle = normalizeStoredStoryBundle(safeStories[rawWord], rawWord)
+
+      bundle.stories.forEach(function (story, index) {
+        const audioEntry = findStoryAudioCacheEntry(safeAudioCache, normalizedWord, story.id)
+        list.push({
+          id: story.id,
+          word: normalizedWord,
+          chinese: meta.chinese || '',
+          emoji: meta.emoji || '📘',
+          category: meta.category || 'unknown',
+          full: story.full || '',
+          englishStory: story.en || '',
+          chineseStory: story.cn || '',
+          displayStory: buildStoryDisplayText(story.en || '', story.cn || '', story.full || ''),
+          saveTime: story.saveTime || 0,
+          saveTimeText: formatTime(story.saveTime || 0),
+          storyIndex: bundle.stories.length - index,
+          audioKey: buildStoryAudioCacheKey(normalizedWord, story.id),
+          hasAudio: !!audioEntry,
+          audioFilePath: audioEntry ? audioEntry.filePath : ''
+        })
+      })
+
+      return list
+    }, [])
+    .sort(function (a, b) {
+      return (b.saveTime || 0) - (a.saveTime || 0)
+    })
+}
+
 function buildStorageStats(assets) {
   const safeAssets = assets || []
   const latest = safeAssets[0] || null
 
   return {
-    totalStories: safeAssets.length,
+    totalStories: safeAssets.reduce(function (sum, item) { return sum + (item.storyCount || 1) }, 0),
     totalReviews: safeAssets.reduce(function (sum, item) { return sum + (item.reviewCount || 0) }, 0),
     totalCacheHits: safeAssets.reduce(function (sum, item) { return sum + (item.cacheHitCount || 0) }, 0),
     savedValueCount: safeAssets.reduce(function (sum, item) { return sum + (item.cacheHitCount || 0) }, 0),
@@ -149,6 +199,7 @@ function buildStorageStats(assets) {
 }
 
 module.exports = {
+  buildMyStoryAssets,
   buildStorageAssets,
   buildStorageStats,
   buildTodayReviewAssets,

@@ -29,6 +29,7 @@ class StoryRequest(BaseModel):
 
 class StoryAudioRequest(BaseModel):
     word: str = Field(..., min_length=1, max_length=80)
+    story_id: str | None = Field(default=None, max_length=160)
     text: str = Field(..., min_length=1, max_length=2000)
 
 
@@ -79,9 +80,13 @@ def _safe_audio_filename(word: str) -> str:
     return safe_name or "story"
 
 
-async def _synthesize_story_audio(word: str, text: str) -> bytes:
+def _story_audio_key(word: str, story_id: str | None = None) -> str:
+    return (story_id or word).strip()
+
+
+async def _synthesize_story_audio(audio_key: str, text: str) -> bytes:
     STORY_AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    cache_path = STORY_AUDIO_DIR / f"{_safe_audio_filename(word)}.mp3"
+    cache_path = STORY_AUDIO_DIR / f"{_safe_audio_filename(audio_key)}.mp3"
     communicate = edge_tts.Communicate(text, "en-US-JennyNeural")
     await communicate.save(str(cache_path))
     return cache_path.read_bytes()
@@ -175,8 +180,8 @@ async def get_story_from_ai(
     }
 
 
-def _story_audio_response(word: str) -> Response:
-    cache_path = STORY_AUDIO_DIR / f"{_safe_audio_filename(word)}.mp3"
+def _story_audio_response(audio_key: str) -> Response:
+    cache_path = STORY_AUDIO_DIR / f"{_safe_audio_filename(audio_key)}.mp3"
     if not cache_path.exists():
         raise HTTPException(status_code=404, detail="该单词的故事音频尚未生成")
 
@@ -190,32 +195,34 @@ def _story_audio_response(word: str) -> Response:
 @app.get("/api/story_audio")
 async def get_story_audio_file(
     word: str = Query(..., min_length=1, max_length=80),
+    story_id: str | None = Query(default=None, max_length=160),
 ):
-    return _story_audio_response(word)
+    return _story_audio_response(_story_audio_key(word, story_id))
 
 
-@app.get("/api/story_audio/{word}.mp3")
+@app.get("/api/story_audio/{audio_key}.mp3")
 async def get_story_audio_file_with_extension(
-    word: str = FastAPIPath(..., min_length=1, max_length=80),
+    audio_key: str = FastAPIPath(..., min_length=1, max_length=160),
 ):
-    return _story_audio_response(word)
+    return _story_audio_response(audio_key)
 
 
 @app.post("/api/story_audio")
 async def create_story_audio(payload: StoryAudioRequest):
     word = payload.word.strip()
+    audio_key = _story_audio_key(word, payload.story_id)
     text = payload.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="text is required")
 
     try:
-        await _synthesize_story_audio(word, text)
+        await _synthesize_story_audio(audio_key, text)
     except TimeoutError:
         raise HTTPException(status_code=504, detail="TTS 任务超时，请稍后重试")
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"TTS 服务失败: {exc}") from exc
 
-    return {"success": True, "word": word}
+    return {"success": True, "word": word, "story_id": payload.story_id or ""}
 
 
 if __name__ == "__main__":

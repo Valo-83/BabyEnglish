@@ -246,6 +246,11 @@
   color: white;
 }
 
+.new-story-btn {
+  background: #7E57C2;
+  color: white;
+}
+
 .story-audio-btn.audio-loading {
   background: #BDBDBD;
   opacity: 0.8;

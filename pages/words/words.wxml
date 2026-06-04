@@ -10,6 +10,11 @@
   <view class="storage-hero">
     <text class="hero-title">AI 学习资产中心</text>
     <text class="hero-subtitle">保存已生成故事，沉淀孩子的本地学习记忆</text>
+    <view class="hero-actions">
+      <view class="hero-action-btn" bindtap="goToMyStories">
+        <text>我的小故事</text>
+      </view>
+    </view>
   </view>
 
   <view class="storage-value-section">
@@ -68,6 +73,7 @@
           <text class="asset-summary">{{item.summary}}</text>
           <view class="asset-tags">
             <text class="asset-tag">已本地保存</text>
+            <text class="asset-tag">故事 {{item.storyCount}} 篇</text>
             <text class="asset-tag">复习 {{item.reviewCount}} 次</text>
             <text class="asset-tag">本地打开 {{item.cacheHitCount}} 次</text>
             <text class="asset-tag status-tag status-{{item.status}}">{{statusMap[item.status]}}</text>

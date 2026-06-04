@@ -1,12 +1,15 @@
 ﻿// pages/learn/learn.js
 const {
+  appendStoredStoryVersion,
   buildReadableStoryText,
   buildStoryAudioCacheEntry,
   buildStoryAudioCacheKey,
+  buildStoredStoryVersion,
   extractEnglishForAudio,
   findStoryAudioCacheEntry,
   findStoredStory,
   findWordIndex,
+  normalizeStoredStoryBundle,
   parseAIStoryPayload,
   splitReadableTTSChunks
 } = require('./learnUtils')
@@ -25,6 +28,8 @@ Page({
     currentIndex: 0,
     words: [],
     selectedWord: '',
+    currentStoryId: '',
+    storyCount: 0,
     // 新字段（供未来 WXML 升级用）
     currentStory: '',
     englishStory: '',
@@ -202,20 +207,22 @@ Page({
     })
     this._trackStudyAction(word.english, { listen: 1 })
     this.playWithMultipleTTS(word.english)
-    this.loadAIStory(word)
   },
 
-  async loadAIStory(word) {
+  async loadAIStory(word, options) {
     if (!word || !word.english) {
       console.warn('loadAIStory called with invalid word:', word)
       return
     }
+    const forceNew = !!(options && options.forceNew)
     const requestId = (this.storyRequestId || 0) + 1
     this.storyRequestId = requestId
     this._stopStoryTyping()
 
     this.setData({
       selectedWord: word.english,
+      currentStoryId: forceNew ? this.data.currentStoryId : '',
+      storyCount: forceNew ? this.data.storyCount : 0,
       // 新字段
       currentStory: '',
       englishStory: '',
@@ -232,44 +239,49 @@ Page({
     }
 
     // 1. 尝试从本地缓存读取
-    try {
-      const cachedData = await new Promise((resolve, reject) => {
-        wx.getStorage({
-          key: 'LOCAL_STORED_AI_STORIES',
-          success: (res) => resolve(res.data || {}),
-          fail: reject
+    if (!forceNew) {
+      try {
+        const cachedData = await new Promise((resolve, reject) => {
+          wx.getStorage({
+            key: 'LOCAL_STORED_AI_STORIES',
+            success: (res) => resolve(res.data || {}),
+            fail: reject
+          })
         })
-      })
 
-      const cachedStory = findStoredStory(cachedData, word.english)
-      if (cachedStory) {
-        console.log(`=== 💾 命中缓存: ${word.english} ===`)
-        const parsedStory = parseAIStoryPayload({
-          ai_story: cachedStory.full || '',
-          en: cachedStory.en || '',
-          cn: cachedStory.cn || ''
-        })
-        this._trackStudyAction(word.english, { cacheHit: 1 })
-        if (!this.isPageActive || requestId !== this.storyRequestId) {
+        const cachedStory = findStoredStory(cachedData, word.english)
+        if (cachedStory) {
+          console.log(`=== 💾 命中缓存: ${word.english} ===`)
+          const storyBundle = normalizeStoredStoryBundle(cachedData[word.english], word.english)
+          const parsedStory = parseAIStoryPayload({
+            ai_story: cachedStory.full || '',
+            en: cachedStory.en || '',
+            cn: cachedStory.cn || ''
+          })
+          this._trackStudyAction(word.english, { cacheHit: 1 })
+          if (!this.isPageActive || requestId !== this.storyRequestId) {
+            return
+          }
+          this.setData({
+            currentStoryId: cachedStory.id || '',
+            storyCount: storyBundle.stories.length,
+            // 新字段
+            currentStory: parsedStory.displayStory,
+            englishStory: parsedStory.englishStory,
+            chineseStory: parsedStory.chineseStory,
+            isLoading: false,
+            // 旧字段（兼容现有 WXML）
+            aiStory: parsedStory.displayStory,
+            storyLoading: false,
+            storyError: ''
+          })
+          this.setData({ hasStoryAudio: false })
+          this.checkStoryAudioCache()
           return
         }
-        this.setData({
-          // 新字段
-          currentStory: parsedStory.displayStory,
-          englishStory: parsedStory.englishStory,
-          chineseStory: parsedStory.chineseStory,
-          isLoading: false,
-          // 旧字段（兼容现有 WXML）
-          aiStory: parsedStory.displayStory,
-          storyLoading: false,
-          storyError: ''
-        })
-        this.setData({ hasStoryAudio: false })
-        this.checkStoryAudioCache()
-        return
+      } catch (e) {
+        console.log('=== 💾 无缓存或读取失败，将从网络获取 ===', e)
       }
-    } catch (e) {
-      console.log('=== 💾 无缓存或读取失败，将从网络获取 ===', e)
     }
 
     // 2. 从网络获取
@@ -295,10 +307,20 @@ Page({
       const parsedStory = parseAIStoryPayload(data)
 
       if (parsedStory.rawStory || parsedStory.englishStory || parsedStory.chineseStory) {
+        const storyVersion = buildStoredStoryVersion(
+          word.english,
+          parsedStory.rawStory,
+          parsedStory.englishStory,
+          parsedStory.chineseStory,
+          Date.now(),
+          this._createStoryId(word.english)
+        )
         if (!this.isPageActive || requestId !== this.storyRequestId) {
           return
         }
         this.setData({
+          currentStoryId: storyVersion ? storyVersion.id : '',
+          storyCount: forceNew ? (this.data.storyCount || 0) + 1 : 1,
           // 新字段
           currentStory: parsedStory.displayStory,
           englishStory: parsedStory.englishStory,
@@ -310,7 +332,9 @@ Page({
           storyError: '',
           hasStoryAudio: false
         })
-        this._cacheStoryAsync(word.english, parsedStory.rawStory, parsedStory.englishStory, parsedStory.chineseStory)
+        if (storyVersion) {
+          this._cacheStoryAsync(word.english, storyVersion)
+        }
         this._trackStudyAction(word.english, { generated: 1 })
         this._showStoryWithTyping(parsedStory.displayStory, requestId)
         return
@@ -320,6 +344,8 @@ Page({
         currentStory: '',
         englishStory: '',
         chineseStory: '',
+        currentStoryId: '',
+        storyCount: 0,
         isLoading: false,
         aiStory: '',
         storyLoading: false,
@@ -333,6 +359,8 @@ Page({
         currentStory: '',
         englishStory: '',
         chineseStory: '',
+        currentStoryId: '',
+        storyCount: 0,
         isLoading: false,
         aiStory: '',
         storyLoading: false,
@@ -341,23 +369,30 @@ Page({
     }
   },
 
-  _cacheStoryAsync(word, full, en, cn) {
+  _createStoryId(word) {
+    const safeWord = String(word || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '_')
+    const suffix = Math.random().toString(36).slice(2, 8)
+    return `${safeWord || 'story'}_${Date.now()}_${suffix}`
+  },
+
+  _cacheStoryAsync(word, storyVersion) {
     wx.getStorage({
       key: 'LOCAL_STORED_AI_STORIES',
       success: (res) => {
         const cache = res.data || {}
-        cache[word] = { full, en, cn, saveTime: Date.now(), audioGenerated: false }
+        const updatedCache = appendStoredStoryVersion(cache, word, storyVersion)
         wx.setStorage({
           key: 'LOCAL_STORED_AI_STORIES',
-          data: cache,
+          data: updatedCache,
           success: () => console.log(`=== 💾 ${word} 资产成功写入 ===`),
           fail: (e) => console.error(`=== 💾 ${word} 写入失败 ===`, e)
         })
       },
       fail: () => {
+        const updatedCache = appendStoredStoryVersion({}, word, storyVersion)
         wx.setStorage({
           key: 'LOCAL_STORED_AI_STORIES',
-          data: { [word]: { full, en, cn, saveTime: Date.now(), audioGenerated: false } },
+          data: updatedCache,
           success: () => console.log(`=== 💾 ${word} 资产成功写入 ===`),
           fail: (e) => console.error(`=== 💾 ${word} 写入失败 ===`, e)
         })
@@ -416,7 +451,7 @@ Page({
   generateStoryNow() {
     const word = this.data.words[this.data.currentIndex]
     if (word) {
-      this.loadAIStory(word)
+      this.loadAIStory(word, { forceNew: true })
     }
   },
 
@@ -645,9 +680,9 @@ Page({
     })
   },
 
-  _getLocalStoryAudioPath(word, onFound, onMissing) {
+  _getLocalStoryAudioPath(word, storyId, onFound, onMissing) {
     this._readStoryAudioFileCache((cache) => {
-      const entry = findStoryAudioCacheEntry(cache, word)
+      const entry = findStoryAudioCacheEntry(cache, word, storyId)
       if (!entry) {
         onMissing()
         return
@@ -663,7 +698,7 @@ Page({
         path: entry.filePath,
         success: () => onFound(entry.filePath),
         fail: () => {
-          const key = buildStoryAudioCacheKey(word)
+          const key = buildStoryAudioCacheKey(word, storyId)
           if (key) {
             delete cache[key]
             this._saveStoryAudioFileCache(cache)
@@ -674,7 +709,7 @@ Page({
     })
   },
 
-  _cacheStoryAudioFile(word, tempFilePath, onReady) {
+  _cacheStoryAudioFile(word, storyId, tempFilePath, onReady) {
     if (!tempFilePath || !wx.saveFile) {
       onReady(tempFilePath)
       return
@@ -684,14 +719,14 @@ Page({
       tempFilePath,
       success: (res) => {
         const savedFilePath = res.savedFilePath || tempFilePath
-        const entry = buildStoryAudioCacheEntry(word, savedFilePath)
+        const entry = buildStoryAudioCacheEntry(word, savedFilePath, null, storyId)
         if (!entry) {
           onReady(savedFilePath)
           return
         }
 
         this._readStoryAudioFileCache((cache) => {
-          const key = buildStoryAudioCacheKey(word)
+          const key = buildStoryAudioCacheKey(word, storyId)
           cache[key] = entry
           this._saveStoryAudioFileCache(cache)
           onReady(savedFilePath)
@@ -706,16 +741,17 @@ Page({
 
   checkStoryAudioCache() {
     const word = this.data.selectedWord
+    const storyId = this.data.currentStoryId
     if (!word) return
 
-    this._getLocalStoryAudioPath(word, () => {
+    this._getLocalStoryAudioPath(word, storyId, () => {
       if (!this.isPageActive || word !== this.data.selectedWord) {
         return
       }
       this.setData({ hasStoryAudio: true })
     }, () => {
       wx.request({
-        url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}`,
+        url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}&story_id=${encodeURIComponent(storyId || '')}`,
         method: 'GET',
         success: (res) => {
           if (!this.isPageActive || word !== this.data.selectedWord) {
@@ -746,6 +782,7 @@ Page({
       return
     }
 
+    const storyId = this.data.currentStoryId
     const englishText = extractEnglishForAudio({
       englishStory: this.data.englishStory,
       aiStory: this.data.aiStory,
@@ -759,7 +796,7 @@ Page({
     const requestId = (this.storyAudioRequestId || 0) + 1
     this.storyAudioRequestId = requestId
 
-    this._getLocalStoryAudioPath(word, (filePath) => {
+    this._getLocalStoryAudioPath(word, storyId, (filePath) => {
       if (!this._isStoryAudioRequestActive(word, requestId)) {
         return
       }
@@ -771,7 +808,7 @@ Page({
       }
 
       if (this.data.hasStoryAudio) {
-        this._downloadAndPlayStoryAudio(word, requestId)
+        this._downloadAndPlayStoryAudio(word, storyId, requestId)
         return
       }
 
@@ -783,7 +820,7 @@ Page({
         method: 'POST',
         timeout: 30000,
         header: { 'content-type': 'application/json' },
-        data: { word: word, text: englishText },
+        data: { word: word, story_id: storyId, text: englishText },
         success: (res) => {
           wx.hideLoading()
           if (!this._isStoryAudioRequestActive(word, requestId)) {
@@ -794,7 +831,7 @@ Page({
             this.setData({ hasStoryAudio: true })
             setTimeout(() => {
               if (this._isStoryAudioRequestActive(word, requestId)) {
-                this._downloadAndPlayStoryAudio(word, requestId)
+                this._downloadAndPlayStoryAudio(word, storyId, requestId)
               }
             }, 300)
           } else {
@@ -866,7 +903,7 @@ Page({
     }
   },
 
-  _downloadAndPlayStoryAudio(word, requestId) {
+  _downloadAndPlayStoryAudio(word, storyId, requestId) {
     if (!this._isStoryAudioRequestActive(word, requestId)) {
       return
     }
@@ -874,8 +911,9 @@ Page({
     this.setData({ playingStoryAudio: true })
     wx.showLoading({ title: '加载音频...' })
 
+    const audioKey = buildStoryAudioCacheKey(word, storyId)
     wx.downloadFile({
-      url: `http://127.0.0.1:8000/api/story_audio/${encodeURIComponent(word)}.mp3`,
+      url: `http://127.0.0.1:8000/api/story_audio/${encodeURIComponent(audioKey)}.mp3`,
       timeout: 15000,
       success: (res) => {
         wx.hideLoading()
@@ -883,7 +921,7 @@ Page({
           return
         }
         if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
-          this._cacheStoryAudioFile(word, res.tempFilePath, (filePath) => {
+          this._cacheStoryAudioFile(word, storyId, res.tempFilePath, (filePath) => {
             if (!this._isStoryAudioRequestActive(word, requestId)) {
               return
             }

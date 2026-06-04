@@ -2,7 +2,8 @@
   "pages": [
     "pages/index/index",
     "pages/learn/learn",
-    "pages/words/words"
+    "pages/words/words",
+    "pages/stories/stories"
   ],
   "window": {
     "backgroundTextStyle": "light",

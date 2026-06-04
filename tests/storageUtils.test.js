@@ -3,6 +3,7 @@ const assert = require('assert')
 const {
   buildStorageAssets,
   buildStorageStats,
+  buildMyStoryAssets,
   buildTodayReviewAssets,
   formatRelativeTime
 } = require('../pages/words/storageUtils')
@@ -151,5 +152,31 @@ const genAssets = buildStorageAssets(
   catalog
 )
 assert.strictEqual(genAssets[0].generatedCount, 5)
+
+const versionedStories = {
+  dog: {
+    activeStoryId: 'dog_2',
+    stories: [
+      { id: 'dog_2', full: 'Second dog story.', en: 'Second dog.', cn: '第二个故事', saveTime: 1717200002000 },
+      { id: 'dog_1', full: 'First dog story.', en: 'First dog.', cn: '第一个故事', saveTime: 1717200001000 }
+    ]
+  }
+}
+const versionedAssets = buildStorageAssets(versionedStories, {}, catalog)
+assert.strictEqual(versionedAssets[0].storyCount, 2)
+assert.strictEqual(versionedAssets[0].full, 'Second dog story.')
+assert.strictEqual(buildStorageStats(versionedAssets).totalStories, 2)
+
+const myStories = buildMyStoryAssets(
+  versionedStories,
+  { dog_2: { filePath: 'wxfile://dog-2.mp3', saveTime: 1717200003000 } },
+  catalog
+)
+assert.strictEqual(myStories.length, 2)
+assert.strictEqual(myStories[0].id, 'dog_2')
+assert.strictEqual(myStories[0].hasAudio, true)
+assert.strictEqual(myStories[0].audioFilePath, 'wxfile://dog-2.mp3')
+assert.strictEqual(myStories[1].hasAudio, false)
+assert.strictEqual(myStories[1].displayStory.includes('First dog.'), true)
 
 console.log('storageUtils tests passed')

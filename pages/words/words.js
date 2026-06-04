@@ -71,6 +71,12 @@ Page({
     })
   },
 
+  goToMyStories() {
+    wx.navigateTo({
+      url: '/pages/stories/stories'
+    })
+  },
+
   markAsMastered(e) {
     const word = e.currentTarget.dataset.word
     const that = this

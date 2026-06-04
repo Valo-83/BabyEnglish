@@ -68,6 +68,11 @@
       </view>
 
       <view class="story-actions" wx:if="{{selectedWord && !storyCollapsed}}">
+        <view class="story-action-btn new-story-btn"
+              wx:if="{{aiStory || englishStory}}"
+              catchtap="generateStoryNow">
+          <text>生成新故事</text>
+        </view>
         <view class="story-action-btn story-audio-btn {{storyAudioLoading ? 'audio-loading' : ''}} {{playingStoryAudio ? 'audio-playing' : ''}}"
               wx:if="{{aiStory || englishStory}}"
               catchtap="playStoryAudio">

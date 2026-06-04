@@ -71,14 +71,6 @@ Page({
     })
   },
 
-  continueReview(e) {
-    const category = e.currentTarget.dataset.category
-    const word = e.currentTarget.dataset.word
-    wx.navigateTo({
-      url: `/pages/learn/learn?type=${category}&word=${encodeURIComponent(word)}&mode=review`
-    })
-  },
-
   markAsMastered(e) {
     const word = e.currentTarget.dataset.word
     const that = this

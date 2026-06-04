@@ -25,6 +25,33 @@ function findStoredRecord(records, targetWord) {
   return safeRecords[targetWord] || null
 }
 
+function buildStoryAudioCacheKey(word) {
+  return normalizeWord(word)
+}
+
+function buildStoryAudioCacheEntry(word, filePath, saveTime) {
+  const normalizedPath = String(filePath || '').trim()
+  if (!buildStoryAudioCacheKey(word) || !normalizedPath) {
+    return null
+  }
+
+  return {
+    filePath: normalizedPath,
+    saveTime: saveTime || Date.now()
+  }
+}
+
+function findStoryAudioCacheEntry(cache, word) {
+  const safeCache = cache || {}
+  const key = buildStoryAudioCacheKey(word)
+  const entry = key ? safeCache[key] : null
+  if (!entry || !entry.filePath) {
+    return null
+  }
+
+  return entry
+}
+
 function buildReadableStoryText(story, maxLength = 180) {
   const normalized = String(story || '').replace(/\s+/g, ' ').trim()
   if (!normalized) {
@@ -212,8 +239,11 @@ function splitReadableTTSChunks(text, maxLength = 70) {
 
 module.exports = {
   buildReadableStoryText,
+  buildStoryAudioCacheEntry,
+  buildStoryAudioCacheKey,
   buildStoryDisplayText,
   extractEnglishForAudio,
+  findStoryAudioCacheEntry,
   findStoredRecord,
   findWordIndex,
   findStoredStory,

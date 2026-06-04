@@ -2,7 +2,10 @@ const assert = require('assert')
 
 const {
   buildReadableStoryText,
+  buildStoryAudioCacheEntry,
+  buildStoryAudioCacheKey,
   extractEnglishForAudio,
+  findStoryAudioCacheEntry,
   findStoredRecord,
   findStoredStory,
   findWordIndex,
@@ -99,5 +102,33 @@ assert.deepStrictEqual(
 )
 assert.deepStrictEqual(splitReadableTTSChunks('dog', 24), ['dog'])
 assert(splitReadableTTSChunks('abcdefghijklmnopqrstuvwxyz', 8).every((chunk) => chunk.length <= 8))
+
+assert.strictEqual(buildStoryAudioCacheKey(' Dog '), 'dog')
+assert.strictEqual(buildStoryAudioCacheKey('sky blue'), 'sky blue')
+assert.deepStrictEqual(
+  buildStoryAudioCacheEntry('Dog', 'wxfile://saved-dog.mp3', 1717200000000),
+  {
+    filePath: 'wxfile://saved-dog.mp3',
+    saveTime: 1717200000000
+  }
+)
+assert.strictEqual(
+  findStoryAudioCacheEntry(
+    {
+      dog: { filePath: 'wxfile://saved-dog.mp3', saveTime: 1717200000000 }
+    },
+    'Dog'
+  ).filePath,
+  'wxfile://saved-dog.mp3'
+)
+assert.strictEqual(
+  findStoryAudioCacheEntry(
+    {
+      dog: { saveTime: 1717200000000 }
+    },
+    'dog'
+  ),
+  null
+)
 
 console.log('learnUtils tests passed')

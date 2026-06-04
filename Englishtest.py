@@ -1,8 +1,6 @@
 import asyncio
-import base64
 import os
 import re
-import subprocess
 import tempfile
 from pathlib import Path
 from urllib.parse import urlencode
@@ -69,52 +67,8 @@ def fetch_youdao_tts_audio(text: str) -> bytes:
     return audio
 
 
-def synthesize_windows_tts_audio(text: str) -> bytes:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_file:
-        temp_path = temp_file.name
-
-    encoded_text = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    encoded_path = base64.b64encode(temp_path.encode("utf-8")).decode("ascii")
-    script = (
-        "Add-Type -AssemblyName System.Speech; "
-        f"$text = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded_text}')); "
-        f"$path = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('{encoded_path}')); "
-        "$speaker = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$speaker.Rate = -1; "
-        "$speaker.SetOutputToWaveFile($path); "
-        "$speaker.Speak($text); "
-        "$speaker.Dispose();"
-    )
-
-    try:
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-Command", script],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
-        if completed.returncode != 0:
-            error_output = (completed.stderr or completed.stdout or "").strip()
-            raise RuntimeError(error_output or "Windows speech synthesis failed")
-        with open(temp_path, "rb") as audio_file:
-            audio = audio_file.read()
-    finally:
-        try:
-            os.remove(temp_path)
-        except OSError:
-            pass
-
-    if not audio:
-        raise ValueError("empty audio response")
-    return audio
-
-
 def fetch_tts_audio(text: str) -> tuple[bytes, str]:
-    try:
-        return synthesize_windows_tts_audio(text), "audio/wav"
-    except Exception:
-        return fetch_youdao_tts_audio(text), "audio/mpeg"
+    return fetch_youdao_tts_audio(text), "audio/mpeg"
 
 
 def _safe_audio_filename(word: str) -> str:

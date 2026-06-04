@@ -377,11 +377,6 @@
   color: #7B1FA2;
 }
 
-.review-btn-secondary {
-  background: #E8F5E9;
-  color: #2E7D32;
-}
-
 .mini-btn:active {
   transform: scale(0.96);
   opacity: 0.85;

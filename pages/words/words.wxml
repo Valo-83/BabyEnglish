@@ -82,12 +82,9 @@
           <text>保存：{{item.saveTimeText}}</text>
           <text>发音：{{item.listenCount}} 次</text>
         </view>
-        <view class="mini-actions">
+        <view class="mini-actions" wx:if="{{item.status !== 'mastered'}}">
           <view class="mini-btn mastered-btn" bindtap="markAsMastered" data-word="{{item.word}}" wx:if="{{item.status !== 'mastered'}}">
             <text>标为已熟悉</text>
-          </view>
-          <view class="mini-btn review-btn-secondary" bindtap="continueReview" data-category="{{item.category}}" data-word="{{item.word}}">
-            <text>继续复习</text>
           </view>
         </view>
         <view class="asset-actions">

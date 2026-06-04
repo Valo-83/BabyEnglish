@@ -1,8 +1,10 @@
 ﻿// pages/learn/learn.js
 const {
   buildReadableStoryText,
+  extractEnglishForAudio,
   findStoredStory,
   findWordIndex,
+  parseAIStoryPayload,
   splitReadableTTSChunks
 } = require('./learnUtils')
 const {
@@ -39,7 +41,9 @@ Page({
     const type = options.type || 'animals'
     const words = this.getWords(type)
     const initialIndex = findWordIndex(words, options.word)
+    this.isPageActive = true
     this.storyRequestId = 0
+    this.storyAudioRequestId = 0
     this.innerAudioContext = null
     this.learnMode = options.mode === 'review' ? 'review' : 'normal'
     this.studyRecordWriteQueue = Promise.resolve()
@@ -50,24 +54,30 @@ Page({
       currentIndex: initialIndex
     }, () => {
       if (words.length > 0) {
-        this.loadAIStory(words[initialIndex])
+        setTimeout(() => {
+          const word = words[initialIndex]
+          if (word) {
+            this.loadAIStory(word)
+          }
+        }, 150)
       }
     })
   },
 
   onUnload() {
+    this.isPageActive = false
     this._stopStoryTyping()
     this.ttsPlaybackId = (this.ttsPlaybackId || 0) + 1
-    if (this.innerAudioContext) {
-      this.innerAudioContext.stop()
-      this.innerAudioContext.destroy()
+    this.storyAudioRequestId = (this.storyAudioRequestId || 0) + 1
+    try {
+      if (this.innerAudioContext) {
+        this.innerAudioContext.stop()
+        this.innerAudioContext.destroy()
+        this.innerAudioContext = null
+      }
+    } catch (e) {
       this.innerAudioContext = null
     }
-    this.setData({
-      storyAudioLoading: false,
-      hasStoryAudio: false,
-      playingStoryAudio: false
-    })
   },
 
   getTitle(type) {
@@ -192,6 +202,10 @@ Page({
   },
 
   async loadAIStory(word) {
+    if (!word || !word.english) {
+      console.warn('loadAIStory called with invalid word:', word)
+      return
+    }
     const requestId = (this.storyRequestId || 0) + 1
     this.storyRequestId = requestId
     this._stopStoryTyping()
@@ -226,18 +240,27 @@ Page({
       const cachedStory = findStoredStory(cachedData, word.english)
       if (cachedStory) {
         console.log(`=== 💾 命中缓存: ${word.english} ===`)
+        const parsedStory = parseAIStoryPayload({
+          ai_story: cachedStory.full || '',
+          en: cachedStory.en || '',
+          cn: cachedStory.cn || ''
+        })
         this._trackStudyAction(word.english, { cacheHit: 1 })
+        if (!this.isPageActive || requestId !== this.storyRequestId) {
+          return
+        }
         this.setData({
           // 新字段
-          currentStory: cachedStory.full || '',
-          englishStory: cachedStory.en || '',
-          chineseStory: cachedStory.cn || '',
+          currentStory: parsedStory.displayStory,
+          englishStory: parsedStory.englishStory,
+          chineseStory: parsedStory.chineseStory,
           isLoading: false,
           // 旧字段（兼容现有 WXML）
-          aiStory: cachedStory.full || cachedStory.en || '',
+          aiStory: parsedStory.displayStory,
           storyLoading: false,
           storyError: ''
         })
+        this.setData({ hasStoryAudio: false })
         this.checkStoryAudioCache()
         return
       }
@@ -265,24 +288,17 @@ Page({
       })
 
       const data = res.data || {}
-      const fullStory =
-        data.story ||
-        data.ai_story ||
-        data.aiStory ||
-        data.content ||
-        data.text ||
-        (data.data && (data.data.story || data.data.ai_story || data.data.content || data.data.text)) ||
-        ''
-      const englishStory = data.en || data.english || data.english_story || ''
-      const chineseStory = data.cn || data.chinese || data.chinese_story || ''
+      const parsedStory = parseAIStoryPayload(data)
 
-      if (fullStory || englishStory || chineseStory) {
-        const storyText = fullStory || englishStory || ''
+      if (parsedStory.rawStory || parsedStory.englishStory || parsedStory.chineseStory) {
+        if (!this.isPageActive || requestId !== this.storyRequestId) {
+          return
+        }
         this.setData({
           // 新字段
-          currentStory: storyText,
-          englishStory: englishStory,
-          chineseStory: chineseStory,
+          currentStory: parsedStory.displayStory,
+          englishStory: parsedStory.englishStory,
+          chineseStory: parsedStory.chineseStory,
           isLoading: false,
           // 旧字段（兼容现有 WXML）
           aiStory: '',
@@ -290,9 +306,9 @@ Page({
           storyError: '',
           hasStoryAudio: false
         })
-        this._cacheStoryAsync(word.english, fullStory, englishStory, chineseStory)
+        this._cacheStoryAsync(word.english, parsedStory.rawStory, parsedStory.englishStory, parsedStory.chineseStory)
         this._trackStudyAction(word.english, { generated: 1 })
-        this._showStoryWithTyping(storyText, requestId)
+        this._showStoryWithTyping(parsedStory.displayStory, requestId)
         return
       }
 
@@ -326,7 +342,7 @@ Page({
       key: 'LOCAL_STORED_AI_STORIES',
       success: (res) => {
         const cache = res.data || {}
-        cache[word] = { full, en, cn, saveTime: Date.now() }
+        cache[word] = { full, en, cn, saveTime: Date.now(), audioGenerated: false }
         wx.setStorage({
           key: 'LOCAL_STORED_AI_STORIES',
           data: cache,
@@ -337,7 +353,7 @@ Page({
       fail: () => {
         wx.setStorage({
           key: 'LOCAL_STORED_AI_STORIES',
-          data: { [word]: { full, en, cn, saveTime: Date.now() } },
+          data: { [word]: { full, en, cn, saveTime: Date.now(), audioGenerated: false } },
           success: () => console.log(`=== 💾 ${word} 资产成功写入 ===`),
           fail: (e) => console.error(`=== 💾 ${word} 写入失败 ===`, e)
         })
@@ -419,13 +435,13 @@ Page({
         return
       }
 
-      index += 1
+      index = Math.min(index + 2, text.length)
       this.setData({
         aiStory: text.slice(0, index)
       })
 
       if (index < text.length) {
-        this.storyTypingTimer = setTimeout(tick, 24)
+        this.storyTypingTimer = setTimeout(tick, 50)
       } else {
         this.storyTypingTimer = null
       }
@@ -478,9 +494,14 @@ Page({
   },
 
   _resetAudioContext() {
-    if (this.innerAudioContext) {
-      this.innerAudioContext.stop()
-      this.innerAudioContext.destroy()
+    try {
+      if (this.innerAudioContext) {
+        this.innerAudioContext.stop()
+        this.innerAudioContext.destroy()
+        this.innerAudioContext = null
+      }
+    } catch (e) {
+      this.innerAudioContext = null
     }
 
     this.innerAudioContext = wx.createInnerAudioContext()
@@ -617,12 +638,24 @@ Page({
       url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}`,
       method: 'GET',
       success: (res) => {
+        if (!this.isPageActive || word !== this.data.selectedWord) {
+          return
+        }
         this.setData({ hasStoryAudio: res.statusCode === 200 })
       },
       fail: () => {
+        if (!this.isPageActive || word !== this.data.selectedWord) {
+          return
+        }
         this.setData({ hasStoryAudio: false })
       }
     })
+  },
+
+  _isStoryAudioRequestActive(word, requestId) {
+    return this.isPageActive &&
+      requestId === this.storyAudioRequestId &&
+      word === this.data.selectedWord
   },
 
   playStoryAudio() {
@@ -632,14 +665,21 @@ Page({
       return
     }
 
-    const englishText = this.data.englishStory || this.data.aiStory || ''
+    const englishText = extractEnglishForAudio({
+      englishStory: this.data.englishStory,
+      aiStory: this.data.aiStory,
+      currentStory: this.data.currentStory
+    })
     if (!englishText.trim()) {
       wx.showToast({ title: '没有故事内容可播放', icon: 'none', duration: 1200 })
       return
     }
 
+    const requestId = (this.storyAudioRequestId || 0) + 1
+    this.storyAudioRequestId = requestId
+
     if (this.data.hasStoryAudio) {
-      this._downloadAndPlayStoryAudio(word)
+      this._downloadAndPlayStoryAudio(word, requestId)
       return
     }
 
@@ -649,61 +689,110 @@ Page({
     wx.request({
       url: 'http://127.0.0.1:8000/api/story_audio',
       method: 'POST',
+      timeout: 30000,
       header: { 'content-type': 'application/json' },
       data: { word: word, text: englishText },
       success: (res) => {
         wx.hideLoading()
+        if (!this._isStoryAudioRequestActive(word, requestId)) {
+          return
+        }
         this.setData({ storyAudioLoading: false })
         if (res.statusCode >= 200 && res.statusCode < 300 && res.data && res.data.success) {
           this.setData({ hasStoryAudio: true })
-          this._downloadAndPlayStoryAudio(word)
+          setTimeout(() => {
+            if (this._isStoryAudioRequestActive(word, requestId)) {
+              this._downloadAndPlayStoryAudio(word, requestId)
+            }
+          }, 300)
         } else {
           const msg = (res.data && res.data.detail) || '音频生成失败'
           wx.showToast({ title: msg, icon: 'none', duration: 2000 })
         }
       },
-      fail: () => {
+      fail: (err) => {
         wx.hideLoading()
+        if (!this._isStoryAudioRequestActive(word, requestId)) {
+          return
+        }
         this.setData({ storyAudioLoading: false })
+        console.error('故事音频生成失败:', err)
         wx.showToast({ title: '无法连接后端服务', icon: 'none', duration: 2000 })
       }
     })
   },
 
-  _downloadAndPlayStoryAudio(word) {
+  _downloadAndPlayStoryAudio(word, requestId) {
+    if (!this._isStoryAudioRequestActive(word, requestId)) {
+      return
+    }
+
     this.setData({ playingStoryAudio: true })
     wx.showLoading({ title: '加载音频...' })
 
     wx.downloadFile({
-      url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}`,
+      url: `http://127.0.0.1:8000/api/story_audio/${encodeURIComponent(word)}.mp3`,
+      timeout: 15000,
       success: (res) => {
         wx.hideLoading()
+        if (!this._isStoryAudioRequestActive(word, requestId)) {
+          return
+        }
         if (res.statusCode >= 200 && res.statusCode < 300 && res.tempFilePath) {
-          if (this.innerAudioContext) {
-            this.innerAudioContext.stop()
-            this.innerAudioContext.destroy()
+          try {
+            if (this.innerAudioContext) {
+              this.innerAudioContext.stop()
+              this.innerAudioContext.destroy()
+              this.innerAudioContext = null
+            }
+            const audio = wx.createInnerAudioContext()
+            let hasStarted = false
+            const startPlayback = () => {
+              if (hasStarted || !this._isStoryAudioRequestActive(word, requestId)) {
+                return
+              }
+              hasStarted = true
+              audio.play()
+            }
+            audio.obeyMuteSwitch = false
+            audio.volume = 1
+            audio.onCanplay(startPlayback)
+            audio.onEnded(() => {
+              if (!this._isStoryAudioRequestActive(word, requestId)) {
+                return
+              }
+              this.setData({ playingStoryAudio: false })
+            })
+            audio.onError((err) => {
+              console.error('故事音频播放失败:', err)
+              if (!this._isStoryAudioRequestActive(word, requestId)) {
+                return
+              }
+              this.setData({ playingStoryAudio: false })
+            })
+            this.innerAudioContext = audio
+            audio.src = res.tempFilePath
+            setTimeout(startPlayback, 500)
+          } catch (e) {
+            console.error('音频播放异常:', e)
+            if (!this._isStoryAudioRequestActive(word, requestId)) {
+              return
+            }
+            this.setData({ playingStoryAudio: false, hasStoryAudio: false })
+            wx.showToast({ title: '音频播放失败', icon: 'none', duration: 2000 })
           }
-          const audio = wx.createInnerAudioContext()
-          audio.obeyMuteSwitch = false
-          audio.volume = 1
-          audio.onEnded(() => {
-            this.setData({ playingStoryAudio: false })
-          })
-          audio.onError((err) => {
-            console.error('故事音频播放失败:', err)
-            this.setData({ playingStoryAudio: false })
-          })
-          this.innerAudioContext = audio
-          audio.src = res.tempFilePath
-          audio.play()
         } else {
-          this.setData({ playingStoryAudio: false })
+          this.setData({ playingStoryAudio: false, hasStoryAudio: false })
           wx.showToast({ title: '音频下载失败', icon: 'none', duration: 2000 })
         }
       },
-      fail: () => {
+      fail: (err) => {
         wx.hideLoading()
-        this.setData({ playingStoryAudio: false })
+        if (!this._isStoryAudioRequestActive(word, requestId)) {
+          return
+        }
+        this.setData({ playingStoryAudio: false, hasStoryAudio: false })
+        console.error('音频下载失败:', err)
         wx.showToast({ title: '音频下载失败', icon: 'none', duration: 2000 })
       }
     })

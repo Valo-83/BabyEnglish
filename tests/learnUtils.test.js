@@ -2,9 +2,11 @@ const assert = require('assert')
 
 const {
   buildReadableStoryText,
+  extractEnglishForAudio,
   findStoredRecord,
   findStoredStory,
   findWordIndex,
+  parseAIStoryPayload,
   splitReadableTTSChunks
 } = require('../pages/learn/learnUtils')
 
@@ -59,6 +61,34 @@ assert.strictEqual(
 assert.strictEqual(buildReadableStoryText('  hello\nworld  '), 'hello world')
 assert.strictEqual(buildReadableStoryText('', 10), '')
 assert.strictEqual(buildReadableStoryText('abcdefghijklmnop', 5), 'abcde')
+
+const taggedStory = parseAIStoryPayload({
+  ai_story: '[ENGLISH]\nA dog sees a red ball. The dog runs.\n[/ENGLISH]\n[CHINESE]\n一只小狗看见一个红球。小狗跑起来。\n[/CHINESE]'
+})
+assert.strictEqual(taggedStory.englishStory, 'A dog sees a red ball. The dog runs.')
+assert.strictEqual(taggedStory.chineseStory, '一只小狗看见一个红球。小狗跑起来。')
+assert.strictEqual(
+  taggedStory.displayStory,
+  'A dog sees a red ball. The dog runs.\n\n中文翻译：\n一只小狗看见一个红球。小狗跑起来。'
+)
+
+const fieldStory = parseAIStoryPayload({
+  en: 'The cat is black.',
+  cn: '这只猫是黑色的。'
+})
+assert.strictEqual(fieldStory.displayStory, 'The cat is black.\n\n中文翻译：\n这只猫是黑色的。')
+
+assert.strictEqual(
+  extractEnglishForAudio({
+    englishStory: 'The cat is black.',
+    aiStory: 'The cat is black.\n\n中文翻译：\n这只猫是黑色的。'
+  }),
+  'The cat is black.'
+)
+assert.strictEqual(
+  extractEnglishForAudio('The dog runs.\n\n中文翻译：\n小狗跑起来。'),
+  'The dog runs.'
+)
 
 assert.deepStrictEqual(
   splitReadableTTSChunks(

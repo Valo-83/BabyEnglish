@@ -36,6 +36,122 @@ function buildReadableStoryText(story, maxLength = 180) {
     : normalized
 }
 
+function normalizeStoryText(value) {
+  return String(value || '').replace(/\r\n/g, '\n').trim()
+}
+
+function getTaggedSection(text, tag) {
+  const pattern = new RegExp(`\\[${tag}\\]\\s*([\\s\\S]+?)\\s*\\[\\/${tag}\\]`, 'i')
+  const match = normalizeStoryText(text).match(pattern)
+  return match ? normalizeStoryText(match[1]) : ''
+}
+
+function stripStoryTags(text) {
+  return normalizeStoryText(text)
+    .replace(/\[\/?(ENGLISH|CHINESE)\]/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function extractRawStory(data) {
+  const safeData = data || {}
+  const nested = safeData.data || {}
+  return normalizeStoryText(
+    safeData.story ||
+    safeData.ai_story ||
+    safeData.aiStory ||
+    safeData.content ||
+    safeData.text ||
+    nested.story ||
+    nested.ai_story ||
+    nested.aiStory ||
+    nested.content ||
+    nested.text ||
+    ''
+  )
+}
+
+function pickFirstText() {
+  for (let index = 0; index < arguments.length; index += 1) {
+    const value = normalizeStoryText(arguments[index])
+    if (value) {
+      return value
+    }
+  }
+  return ''
+}
+
+function buildStoryDisplayText(englishStory, chineseStory, fallbackStory) {
+  const english = normalizeStoryText(englishStory)
+  const chinese = normalizeStoryText(chineseStory)
+
+  if (english && chinese) {
+    return `${english}\n\n中文翻译：\n${chinese}`
+  }
+  if (english) {
+    return english
+  }
+  if (chinese) {
+    return `中文翻译：\n${chinese}`
+  }
+  return stripStoryTags(fallbackStory)
+}
+
+function parseAIStoryPayload(data) {
+  const safeData = data || {}
+  const nested = safeData.data || {}
+  const rawStory = extractRawStory(safeData)
+
+  const englishStory = pickFirstText(
+    safeData.en,
+    safeData.english,
+    safeData.english_story,
+    nested.en,
+    nested.english,
+    nested.english_story,
+    getTaggedSection(rawStory, 'ENGLISH')
+  )
+  const chineseStory = pickFirstText(
+    safeData.cn,
+    safeData.chinese,
+    safeData.chinese_story,
+    nested.cn,
+    nested.chinese,
+    nested.chinese_story,
+    getTaggedSection(rawStory, 'CHINESE')
+  )
+
+  return {
+    rawStory,
+    englishStory: englishStory || (chineseStory ? '' : stripStoryTags(rawStory)),
+    chineseStory,
+    displayStory: buildStoryDisplayText(englishStory || (chineseStory ? '' : stripStoryTags(rawStory)), chineseStory, rawStory)
+  }
+}
+
+function extractEnglishForAudio(storySource) {
+  const source = storySource || {}
+  const englishStory = typeof source === 'string'
+    ? getTaggedSection(source, 'ENGLISH')
+    : source.englishStory || getTaggedSection(source.aiStory || source.currentStory || '', 'ENGLISH')
+
+  if (englishStory) {
+    return normalizeStoryText(englishStory)
+  }
+
+  const fallback = typeof source === 'string'
+    ? source
+    : source.aiStory || source.currentStory || ''
+
+  return normalizeStoryText(fallback)
+    .split(/\n\s*中文翻译[:：]?\s*\n?/)[0]
+    .replace(/\[CHINESE\][\s\S]*$/i, '')
+    .replace(/中文翻译[:：]?[\s\S]*$/i, '')
+    .replace(/[\u3400-\u9fff]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function splitReadableTTSChunks(text, maxLength = 70) {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim()
   if (!normalized) {
@@ -96,8 +212,11 @@ function splitReadableTTSChunks(text, maxLength = 70) {
 
 module.exports = {
   buildReadableStoryText,
+  buildStoryDisplayText,
+  extractEnglishForAudio,
   findStoredRecord,
   findWordIndex,
   findStoredStory,
+  parseAIStoryPayload,
   splitReadableTTSChunks
 }

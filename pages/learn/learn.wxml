@@ -55,14 +55,14 @@
 
       <view class="story-error" wx:elif="{{storyError && !storyCollapsed}}">
         <text>{{storyError}}</text>
-        <view class="sound-btn" bindtap="generateStoryNow">
+        <view class="sound-btn" catchtap="generateStoryNow">
           <text class="sound-text">重试生成</text>
         </view>
       </view>
 
       <view class="story-loading" wx:elif="{{!storyCollapsed}}">
         <text>停留一下会自动生成，也可以立即生成。</text>
-        <view class="sound-btn" bindtap="generateStoryNow">
+        <view class="sound-btn" catchtap="generateStoryNow">
           <text class="sound-text">生成 AI 故事</text>
         </view>
       </view>
@@ -70,13 +70,13 @@
       <view class="story-actions" wx:if="{{selectedWord && !storyCollapsed}}">
         <view class="story-action-btn story-audio-btn {{storyAudioLoading ? 'audio-loading' : ''}} {{playingStoryAudio ? 'audio-playing' : ''}}"
               wx:if="{{aiStory || englishStory}}"
-              bindtap="playStoryAudio">
+              catchtap="playStoryAudio">
           <text wx:if="{{storyAudioLoading}}">⏳ 音频生成中...</text>
           <text wx:elif="{{playingStoryAudio}}">🔊 播放中...</text>
           <text wx:elif="{{hasStoryAudio}}">🔊 重播故事</text>
           <text wx:else>🎵 播放故事音频</text>
         </view>
-        <view class="story-action-btn mastered-btn" bindtap="markAsMastered">
+        <view class="story-action-btn mastered-btn" catchtap="markAsMastered">
           <text>标为已熟悉</text>
         </view>
       </view>

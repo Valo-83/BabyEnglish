@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl *)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(python Englishtest.py)"
+    ]
+  }
+}

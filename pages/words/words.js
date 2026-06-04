@@ -1,5 +1,10 @@
 // pages/words/words.js
-const { buildStorageAssets, buildStorageStats, buildTodayReviewAssets } = require('./storageUtils')
+const {
+  buildStorageAssets,
+  buildStorageStats,
+  buildTodayReviewAssets,
+  filterStorageAssets
+} = require('./storageUtils')
 const WORD_CATALOG = require('./wordCatalog')
 const { markStudyRecordMastered } = require('../shared/studyRecordUtils')
 
@@ -8,10 +13,28 @@ const RECORD_STORAGE_KEY = 'LOCAL_STUDY_RECORDS'
 
 Page({
   data: {
+    allAssets: [],
     assets: [],
     stats: buildStorageStats([]),
     hasAssets: false,
+    hasFilteredAssets: false,
     expandedWord: '',
+    searchKeyword: '',
+    categoryFilter: 'all',
+    statusFilter: 'all',
+    categoryOptions: [
+      { value: 'all', label: '全部' },
+      { value: 'animals', label: '动物' },
+      { value: 'fruits', label: '水果' },
+      { value: 'colors', label: '颜色' },
+      { value: 'numbers', label: '数字' }
+    ],
+    statusOptions: [
+      { value: 'all', label: '全部状态' },
+      { value: 'new', label: '新保存' },
+      { value: 'reviewing', label: '复习中' },
+      { value: 'mastered', label: '已熟悉' }
+    ],
     todayReview: [],
     statusMap: {
       new: '新保存',
@@ -27,17 +50,55 @@ Page({
   loadStorageLibrary() {
     this.readLocalStorage(STORY_STORAGE_KEY, (stories) => {
       this.readLocalStorage(RECORD_STORAGE_KEY, (records) => {
-        const assets = buildStorageAssets(stories, records, WORD_CATALOG)
-        const todayReview = buildTodayReviewAssets(assets)
+        const allAssets = buildStorageAssets(stories, records, WORD_CATALOG)
+        const todayReview = buildTodayReviewAssets(allAssets)
+        const filteredAssets = this.filterAssets(allAssets)
         this.setData({
-          assets,
-          stats: buildStorageStats(assets),
-          hasAssets: assets.length > 0,
+          allAssets,
+          assets: filteredAssets,
+          stats: buildStorageStats(allAssets),
+          hasAssets: allAssets.length > 0,
+          hasFilteredAssets: filteredAssets.length > 0,
           expandedWord: '',
           todayReview
         })
       })
     })
+  },
+
+  filterAssets(assets) {
+    return filterStorageAssets(assets, {
+      keyword: this.data.searchKeyword,
+      category: this.data.categoryFilter,
+      status: this.data.statusFilter
+    })
+  },
+
+  applyFilters() {
+    const filteredAssets = this.filterAssets(this.data.allAssets)
+    this.setData({
+      assets: filteredAssets,
+      hasFilteredAssets: filteredAssets.length > 0,
+      expandedWord: ''
+    })
+  },
+
+  onSearchInput(e) {
+    this.setData({
+      searchKeyword: e.detail.value || ''
+    }, () => this.applyFilters())
+  },
+
+  selectCategory(e) {
+    this.setData({
+      categoryFilter: e.currentTarget.dataset.value || 'all'
+    }, () => this.applyFilters())
+  },
+
+  selectStatus(e) {
+    this.setData({
+      statusFilter: e.currentTarget.dataset.value || 'all'
+    }, () => this.applyFilters())
   },
 
   readLocalStorage(key, callback) {

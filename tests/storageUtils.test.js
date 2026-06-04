@@ -5,6 +5,8 @@ const {
   buildStorageStats,
   buildMyStoryAssets,
   buildTodayReviewAssets,
+  filterMyStoryAssets,
+  filterStorageAssets,
   formatRelativeTime
 } = require('../pages/words/storageUtils')
 const wordCatalog = require('../pages/words/wordCatalog')
@@ -178,5 +180,39 @@ assert.strictEqual(myStories[0].hasAudio, true)
 assert.strictEqual(myStories[0].audioFilePath, 'wxfile://dog-2.mp3')
 assert.strictEqual(myStories[1].hasAudio, false)
 assert.strictEqual(myStories[1].displayStory.includes('First dog.'), true)
+
+assert.deepStrictEqual(
+  filterStorageAssets(assets, { keyword: 'dog' }).map(function (item) { return item.word }),
+  ['dog']
+)
+assert.deepStrictEqual(
+  filterStorageAssets(assets, { keyword: 'red' }).map(function (item) { return item.word }),
+  ['apple']
+)
+assert.deepStrictEqual(
+  filterStorageAssets(assets, { category: 'animals' }).map(function (item) { return item.word }),
+  ['dog']
+)
+assert.deepStrictEqual(
+  filterStorageAssets(assets, { status: 'reviewing' }).map(function (item) { return item.word }),
+  ['dog']
+)
+assert.deepStrictEqual(
+  filterStorageAssets(assets, { category: 'fruits', status: 'new' }).map(function (item) { return item.word }),
+  ['apple']
+)
+
+assert.deepStrictEqual(
+  filterMyStoryAssets(myStories, { keyword: 'Second' }).map(function (item) { return item.id }),
+  ['dog_2']
+)
+assert.deepStrictEqual(
+  filterMyStoryAssets(myStories, { category: 'animals', audioStatus: 'withAudio' }).map(function (item) { return item.id }),
+  ['dog_2']
+)
+assert.deepStrictEqual(
+  filterMyStoryAssets(myStories, { audioStatus: 'withoutAudio' }).map(function (item) { return item.id }),
+  ['dog_1']
+)
 
 console.log('storageUtils tests passed')

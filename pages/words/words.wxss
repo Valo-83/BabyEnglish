@@ -146,6 +146,53 @@
   border-top: 1rpx solid #EEF4F4;
 }
 
+.filter-section {
+  margin-bottom: 28rpx;
+  padding: 28rpx;
+  border-radius: 24rpx;
+  background: white;
+  box-shadow: 0 10rpx 28rpx rgba(31, 93, 130, 0.12);
+}
+
+.search-input {
+  height: 76rpx;
+  padding: 0 24rpx;
+  border-radius: 18rpx;
+  background: #F7FCFE;
+  color: #174A63;
+  font-size: 26rpx;
+  box-sizing: border-box;
+  margin-bottom: 18rpx;
+}
+
+.filter-row {
+  white-space: nowrap;
+  margin-top: 14rpx;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 60rpx;
+  padding: 0 24rpx;
+  margin-right: 14rpx;
+  border-radius: 999rpx;
+  background: #EAF7F7;
+  color: #2A7778;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.filter-chip.active {
+  background: #1E9BB2;
+  color: white;
+}
+
+.status-chip.active {
+  background: #F08A24;
+}
+
 /* 今日复习 */
 .today-review-section {
   margin-bottom: 28rpx;

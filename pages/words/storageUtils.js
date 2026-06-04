@@ -181,6 +181,68 @@ function buildMyStoryAssets(stories, audioCache, catalog) {
     })
 }
 
+function matchesKeyword(item, keyword, fields) {
+  const normalizedKeyword = String(keyword || '').trim().toLowerCase()
+  if (!normalizedKeyword) {
+    return true
+  }
+
+  return fields.some(function (field) {
+    return String(item[field] || '').toLowerCase().indexOf(normalizedKeyword) >= 0
+  })
+}
+
+function filterStorageAssets(assets, filters) {
+  const safeAssets = assets || []
+  const safeFilters = filters || {}
+  const category = safeFilters.category || 'all'
+  const status = safeFilters.status || 'all'
+
+  return safeAssets.filter(function (item) {
+    if (category !== 'all' && item.category !== category) {
+      return false
+    }
+    if (status !== 'all' && item.status !== status) {
+      return false
+    }
+    return matchesKeyword(item, safeFilters.keyword, [
+      'word',
+      'chinese',
+      'full',
+      'summary',
+      'englishStory',
+      'chineseStory'
+    ])
+  })
+}
+
+function filterMyStoryAssets(stories, filters) {
+  const safeStories = stories || []
+  const safeFilters = filters || {}
+  const category = safeFilters.category || 'all'
+  const audioStatus = safeFilters.audioStatus || 'all'
+
+  return safeStories.filter(function (item) {
+    if (category !== 'all' && item.category !== category) {
+      return false
+    }
+    if (audioStatus === 'withAudio' && !item.hasAudio) {
+      return false
+    }
+    if (audioStatus === 'withoutAudio' && item.hasAudio) {
+      return false
+    }
+    return matchesKeyword(item, safeFilters.keyword, [
+      'word',
+      'chinese',
+      'full',
+      'displayStory',
+      'englishStory',
+      'chineseStory'
+    ])
+  })
+}
+
 function buildStorageStats(assets) {
   const safeAssets = assets || []
   const latest = safeAssets[0] || null
@@ -203,6 +265,8 @@ module.exports = {
   buildStorageAssets,
   buildStorageStats,
   buildTodayReviewAssets,
+  filterMyStoryAssets,
+  filterStorageAssets,
   formatTime,
   formatRelativeTime
 }

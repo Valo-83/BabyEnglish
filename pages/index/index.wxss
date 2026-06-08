@@ -15,16 +15,16 @@
   display: block;
   font-size: 72rpx;
   font-weight: bold;
-  color: rgb(4, 196, 196);
+  color: #E8983E;
   margin-bottom: 30rpx;
-  text-shadow: 4rpx 4rpx 8rpx rgb(223, 243, 6);
+  text-shadow: 4rpx 4rpx 8rpx rgba(232, 152, 62, 0.3);
 }
 
 .subtitle {
   display: block;
   font-size: 36rpx;
-  color: #1885df;
-  text-shadow:4rpx 4rpx 8rpx #c3ff00;
+  color: #D4956B;
+  text-shadow: 4rpx 4rpx 8rpx rgba(212, 149, 107, 0.3);
 }
 
 .category-list {
@@ -41,7 +41,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(239, 252, 167, 0.781);
+  background: rgba(255, 248, 225, 0.88);
   border-radius: 40rpx;
   box-shadow: 0 8rpx 24rpx rgba(0,0,0,0.1);
   transition: all 0.3s;
@@ -55,7 +55,7 @@
   gap: 32rpx;
   padding: 0 42rpx;
   box-sizing: border-box;
-  background: rgba(238, 249, 177, 0.95);
+  background: rgba(255, 248, 225, 0.95);
 }
 
 .storage-entry .icon-wrapper {

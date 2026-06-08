@@ -14,6 +14,12 @@
       <view class="hero-action-btn" bindtap="goToMyStories">
         <text>我的小故事</text>
       </view>
+      <view class="hero-action-btn secondary" bindtap="exportLearningPackage">
+        <text>导出资料包</text>
+      </view>
+      <view class="hero-action-btn secondary" bindtap="importLearningPackage">
+        <text>导入资料包</text>
+      </view>
     </view>
   </view>
 
@@ -132,6 +138,54 @@
             <text>删除缓存</text>
           </view>
         </view>
+      </view>
+    </view>
+  </view>
+</view>
+
+<!-- 导入预览弹窗 -->
+<view class="preview-overlay" wx:if="{{showImportPreview}}" catchtap="cancelImport">
+  <view class="preview-modal" catchtap="">
+    <view class="preview-header">
+      <text class="preview-title">导入资料包预览</text>
+      <text class="preview-close" bindtap="cancelImport">✕</text>
+    </view>
+    <view class="preview-body">
+      <view class="preview-meta" wx:if="{{importPreview}}">
+        <text class="preview-package-title">{{importPreview.title}}</text>
+        <text class="preview-package-desc">{{importPreview.description}}</text>
+      </view>
+      <view class="preview-stats" wx:if="{{importPreview}}">
+        <view class="preview-stat-item">
+          <text class="preview-stat-icon">📖</text>
+          <text class="preview-stat-label">{{importPreview.storyText}}</text>
+        </view>
+        <view class="preview-stat-item">
+          <text class="preview-stat-icon">🔊</text>
+          <text class="preview-stat-label">{{importPreview.audioText}}</text>
+        </view>
+        <view class="preview-stat-item">
+          <text class="preview-stat-icon">📝</text>
+          <text class="preview-stat-label">{{importPreview.recordText}}</text>
+        </view>
+      </view>
+      <view class="preview-words" wx:if="{{importPreview && importPreview.words && importPreview.words.length}}">
+        <text class="preview-words-label">包含单词：</text>
+        <view class="preview-word-chips">
+          <text class="preview-word-chip" wx:for="{{importPreview.words}}" wx:key="*this">{{item}}</text>
+          <text class="preview-word-chip more" wx:if="{{importPreview.wordCount > 8}}">+{{importPreview.wordCount - 8}} 个</text>
+        </view>
+      </view>
+      <view class="preview-notice">
+        <text>导入不会覆盖已有故事，仅合并新内容。</text>
+      </view>
+    </view>
+    <view class="preview-footer">
+      <view class="preview-btn cancel" bindtap="cancelImport">
+        <text>取消</text>
+      </view>
+      <view class="preview-btn confirm" bindtap="confirmImport">
+        <text>确认导入</text>
       </view>
     </view>
   </view>

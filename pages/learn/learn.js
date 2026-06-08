@@ -288,7 +288,7 @@ Page({
     try {
       const res = await new Promise((resolve, reject) => {
         wx.request({
-          url: `http://127.0.0.1:8000/api/ai_story?word=${encodeURIComponent(word.english)}`,
+          url: `http://192.168.31.95:8000/api/ai_story?word=${encodeURIComponent(word.english)}`,
           method: 'POST',
           header: {
             'content-type': 'application/json'
@@ -751,7 +751,7 @@ Page({
       this.setData({ hasStoryAudio: true })
     }, () => {
       wx.request({
-        url: `http://127.0.0.1:8000/api/story_audio?word=${encodeURIComponent(word)}&story_id=${encodeURIComponent(storyId || '')}`,
+        url: `http://192.168.31.95:8000/api/story_audio?word=${encodeURIComponent(word)}&story_id=${encodeURIComponent(storyId || '')}`,
         method: 'GET',
         success: (res) => {
           if (!this.isPageActive || word !== this.data.selectedWord) {
@@ -816,7 +816,7 @@ Page({
       wx.showLoading({ title: '生成故事音频...' })
 
       wx.request({
-        url: 'http://127.0.0.1:8000/api/story_audio',
+        url: 'http://192.168.31.95:8000/api/story_audio',
         method: 'POST',
         timeout: 30000,
         header: { 'content-type': 'application/json' },
@@ -913,7 +913,7 @@ Page({
 
     const audioKey = buildStoryAudioCacheKey(word, storyId)
     wx.downloadFile({
-      url: `http://127.0.0.1:8000/api/story_audio/${encodeURIComponent(audioKey)}.mp3`,
+      url: `http://192.168.31.95:8000/api/story_audio/${encodeURIComponent(audioKey)}.mp3`,
       timeout: 15000,
       success: (res) => {
         wx.hideLoading()

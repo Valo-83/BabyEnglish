@@ -26,7 +26,7 @@
 
 .back-icon {
   font-size: 42rpx;
-  color: #1D6B8F;
+  color: white;
 }
 
 .page-title {
@@ -62,12 +62,15 @@
 
 .hero-actions {
   display: flex;
+  flex-wrap: wrap;
   margin-top: 24rpx;
 }
 
 .hero-action-btn {
   height: 72rpx;
   padding: 0 30rpx;
+  margin-right: 16rpx;
+  margin-bottom: 16rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,6 +79,11 @@
   color: white;
   font-size: 26rpx;
   font-weight: 700;
+}
+
+.hero-action-btn.secondary {
+  background: #FFF3E0;
+  color: #C76816;
 }
 
 .hero-action-btn:active {

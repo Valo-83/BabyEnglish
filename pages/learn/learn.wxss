@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: rgba(255, 248, 225, 0.9);
   border-radius: 50%;
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
 }
@@ -76,7 +76,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: rgba(255, 248, 225, 0.9);
   border-radius: 50%;
   box-shadow: 0 6rpx 18rpx rgba(0,0,0,0.1);
   flex-shrink: 0;
@@ -89,7 +89,7 @@
 .word-wrapper {
   margin: 8rpx 0;
   padding: 15rpx 40rpx;
-  background: white;
+  background: rgba(255, 248, 225, 0.9);
   border-radius: 20rpx;
   box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.1);
   flex-shrink: 0;
@@ -146,7 +146,7 @@
   left: 10rpx;
   right: 10rpx;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 248, 225, 0.96);
   border-radius: 24rpx 24rpx 0 0;
   box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
   max-height: 45%;
@@ -270,7 +270,7 @@
 .progress-text {
   font-size: 26rpx;
   color: #999;
-  background: white;
+  background: rgba(255, 248, 225, 0.9);
   padding: 6rpx 26rpx;
   border-radius: 20rpx;
   display: inline-block;
